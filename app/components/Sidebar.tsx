@@ -18,7 +18,7 @@ export default function Sidebar() {
           Knowledge Base
         </Link>
 
-        <Link href="#" className="text-gray-300 hover:text-white">
+        <Link href="/conversations" className="text-gray-300 hover:text-white">
           Conversations
         </Link>
 
