@@ -22,7 +22,7 @@ export default function Sidebar() {
           Conversations
         </Link>
 
-        <Link href="#" className="text-gray-300 hover:text-white">
+        <Link href="/cases" className="text-gray-300 hover:text-white">
           Cases
         </Link>
       </nav>
