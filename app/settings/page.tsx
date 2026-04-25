@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { supabase } from "../../lib/supabase";
 
@@ -8,12 +8,66 @@ export default function SettingsPage() {
   const [companyName, setCompanyName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    const loadCompany = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        alert(userError.message);
+        return;
+      }
+
+      if (!user) {
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("companies")
+        .select("name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      if (data?.name) {
+        setCompanyName(data.name);
+      }
+    };
+
+    loadCompany();
+  }, []);
+
   const saveCompany = async () => {
     setSaving(true);
 
-    const { error } = await supabase.from("companies").insert({
-      name: companyName,
-    });
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setSaving(false);
+      alert(userError?.message ?? "You must be logged in to save settings.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("companies")
+      .upsert(
+        {
+          name: companyName,
+          user_id: user.id,
+        },
+        { onConflict: "user_id" }
+      )
+      .select("name")
+      .single();
 
     setSaving(false);
 
@@ -23,7 +77,7 @@ export default function SettingsPage() {
     }
 
     alert("Company saved");
-    setCompanyName("");
+    setCompanyName(data.name);
   };
 
   return (
