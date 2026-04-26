@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { supabase } from "../../lib/supabase";
 
+const widgetBaseUrl =
+  process.env.NEXT_PUBLIC_WIDGET_URL || "http://localhost:3000";
+
 function createWidgetKey() {
   return `wpk_${crypto.randomUUID().replaceAll("-", "")}`;
 }
@@ -67,7 +70,7 @@ export default function InstallPage() {
   }, []);
 
   const installSnippet = widgetKey
-    ? `<script src="http://localhost:3000/axcell-widget.js" data-widget-key="${widgetKey}"></script>`
+    ? `<script src="${widgetBaseUrl}/axcell-widget.js" data-widget-key="${widgetKey}"></script>`
     : "Save company settings first, then reload this page.";
 
   return (

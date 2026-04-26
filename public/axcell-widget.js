@@ -4,15 +4,24 @@
   }
 
   window.__axcellWidgetLoaded = true;
-
   const script = document.currentScript;
   const baseUrl = script ? new URL(script.src).origin : window.location.origin;
   const widgetKey = script
     ? script.getAttribute("data-widget-key") || ""
     : "";
 
-  const styles = document.createElement("style");
-  styles.textContent = `
+  function injectWidget() {
+    try {
+      if (!document.body) {
+        throw new Error("document.body is not available");
+      }
+
+      if (document.querySelector(".axcell-widget-panel")) {
+        return;
+      }
+
+      const styles = document.createElement("style");
+      styles.textContent = `
     .axcell-widget-button {
       position: fixed;
       right: 24px;
@@ -131,11 +140,11 @@
       opacity: 0.55;
     }
   `;
-  document.head.appendChild(styles);
+      document.head.appendChild(styles);
 
-  const panel = document.createElement("div");
-  panel.className = "axcell-widget-panel";
-  panel.innerHTML = `
+      const panel = document.createElement("div");
+      panel.className = "axcell-widget-panel";
+      panel.innerHTML = `
     <h2 class="axcell-widget-title">Axcell Chat</h2>
     <p class="axcell-widget-subtitle">Send us a message.</p>
     <div class="axcell-widget-messages">
@@ -151,85 +160,95 @@
     </form>
   `;
 
-  const button = document.createElement("button");
-  button.className = "axcell-widget-button";
-  button.type = "button";
-  button.textContent = "Chat";
+      const button = document.createElement("button");
+      button.className = "axcell-widget-button";
+      button.type = "button";
+      button.textContent = "Chat";
 
-  document.body.appendChild(panel);
-  document.body.appendChild(button);
+      document.body.appendChild(panel);
+      document.body.appendChild(button);
 
-  const messages = panel.querySelector(".axcell-widget-messages");
-  const form = panel.querySelector(".axcell-widget-form");
-  const nameInput = panel.querySelector(".axcell-widget-name");
-  const emailInput = panel.querySelector(".axcell-widget-email");
-  const textInput = panel.querySelector(".axcell-widget-text");
-  const sendButton = panel.querySelector(".axcell-widget-send");
+      const messages = panel.querySelector(".axcell-widget-messages");
+      const form = panel.querySelector(".axcell-widget-form");
+      const nameInput = panel.querySelector(".axcell-widget-name");
+      const emailInput = panel.querySelector(".axcell-widget-email");
+      const textInput = panel.querySelector(".axcell-widget-text");
+      const sendButton = panel.querySelector(".axcell-widget-send");
 
-  function addMessage(role, text) {
-    const empty = messages.querySelector(".axcell-widget-empty");
+      function addMessage(role, text) {
+        const empty = messages.querySelector(".axcell-widget-empty");
 
-    if (empty) {
-      empty.remove();
-    }
+        if (empty) {
+          empty.remove();
+        }
 
-    const message = document.createElement("div");
-    message.className =
-      role === "customer"
-        ? "axcell-widget-message axcell-widget-message-customer"
-        : "axcell-widget-message axcell-widget-message-bot";
-    message.textContent = text;
-    messages.appendChild(message);
-    messages.scrollTop = messages.scrollHeight;
-  }
-
-  button.addEventListener("click", function () {
-    panel.classList.toggle("axcell-widget-open");
-  });
-
-  form.addEventListener("submit", async function (event) {
-    event.preventDefault();
-
-    const customerName = nameInput.value.trim();
-    const customerEmail = emailInput.value.trim();
-    const text = textInput.value.trim();
-
-    if (!customerName || !text) {
-      return;
-    }
-
-    addMessage("customer", text);
-    textInput.value = "";
-    sendButton.disabled = true;
-    sendButton.textContent = "Sending";
-
-    try {
-      const response = await fetch(`${baseUrl}/api/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          widget_key: widgetKey,
-          customer_name: customerName,
-          customer_email: customerEmail || null,
-          message: text,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        addMessage("bot", data.error || "Could not send message.");
-        return;
+        const message = document.createElement("div");
+        message.className =
+          role === "customer"
+            ? "axcell-widget-message axcell-widget-message-customer"
+            : "axcell-widget-message axcell-widget-message-bot";
+        message.textContent = text;
+        messages.appendChild(message);
+        messages.scrollTop = messages.scrollHeight;
       }
 
-      addMessage("bot", data.reply);
-    } catch {
-      addMessage("bot", "Could not send message.");
-    } finally {
-      sendButton.disabled = false;
-      sendButton.textContent = "Send";
+      button.addEventListener("click", function () {
+        panel.classList.toggle("axcell-widget-open");
+      });
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const customerName = nameInput.value.trim();
+        const customerEmail = emailInput.value.trim();
+        const text = textInput.value.trim();
+
+        if (!customerName || !text) {
+          return;
+        }
+
+        addMessage("customer", text);
+        textInput.value = "";
+        sendButton.disabled = true;
+        sendButton.textContent = "Sending";
+
+        try {
+          const response = await fetch(`${baseUrl}/api/chat`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              widget_key: widgetKey,
+              customer_name: customerName,
+              customer_email: customerEmail || null,
+              message: text,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            addMessage("bot", data.error || "Could not send message.");
+            return;
+          }
+
+          addMessage("bot", data.reply);
+        } catch {
+          addMessage("bot", "Could not send message.");
+        } finally {
+          sendButton.disabled = false;
+          sendButton.textContent = "Send";
+        }
+      });
+    } catch (error) {
+      console.error("Axcell widget failed to inject", error);
     }
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", injectWidget, { once: true });
+  } else {
+    injectWidget();
+  }
 })();
