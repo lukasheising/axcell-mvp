@@ -12,6 +12,15 @@ const openaiApiKey = process.env.OPENAI_API_KEY;
 const placeholderReply = "Tak for din besked. Vi vender tilbage hurtigst muligt.";
 const maxCustomerMessageLength = 2000;
 const maxKnowledgeLength = 4000;
+const escalationTriggers = [
+  "refund",
+  "return",
+  "missing package",
+  "where is my order",
+  "speak to human",
+  "damaged item",
+  "complaint",
+];
 
 type OpenAIResponse = {
   output_text?: string;
@@ -39,6 +48,12 @@ function extractOpenAIText(data: OpenAIResponse) {
 
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+function getEscalationTrigger(message: string) {
+  const normalized = message.toLowerCase();
+
+  return escalationTriggers.find((trigger) => normalized.includes(trigger));
 }
 
 function formatKnowledgeSection(question: string) {
@@ -191,18 +206,39 @@ export async function POST(request: NextRequest) {
 
   const openaiData = (await openaiResponse.json()) as OpenAIResponse;
   const reply = extractOpenAIText(openaiData) || placeholderReply;
+  const escalationTrigger = getEscalationTrigger(message);
 
-  const { error } = await supabase.from("conversations").insert({
-    company_id: company.id,
-    customer_name: customerName,
-    customer_email: customerEmail,
-    issue_type: "General",
-    transcript: `Customer: ${message}\n\nAxcell: ${reply}`,
-    status: "open",
-  });
+  const { data: conversation, error } = await supabase
+    .from("conversations")
+    .insert({
+      company_id: company.id,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      issue_type: "General",
+      transcript: `Customer: ${message}\n\nAxcell: ${reply}`,
+      status: "open",
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  if (escalationTrigger) {
+    const { error: caseError } = await supabase.from("cases").insert({
+      company_id: company.id,
+      conversation_id: conversation.id,
+      customer_name: customerName,
+      issue_type: escalationTrigger,
+      priority: "high",
+      status: "open",
+      notes: "Automatically escalated by AI",
+    });
+
+    if (caseError) {
+      return Response.json({ error: caseError.message }, { status: 500 });
+    }
   }
 
   return Response.json({ reply });
