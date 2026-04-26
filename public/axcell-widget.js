@@ -7,6 +7,9 @@
 
   const script = document.currentScript;
   const baseUrl = script ? new URL(script.src).origin : window.location.origin;
+  const widgetKey = script
+    ? script.getAttribute("data-widget-key") || ""
+    : "";
 
   const styles = document.createElement("style");
   styles.textContent = `
@@ -203,11 +206,11 @@
     try {
       const response = await fetch(`${baseUrl}/api/chat`, {
         method: "POST",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          widget_key: widgetKey,
           customer_name: customerName,
           customer_email: customerEmail || null,
           message: text,

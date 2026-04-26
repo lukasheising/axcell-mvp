@@ -1,9 +1,75 @@
-import Sidebar from "../components/Sidebar";
+"use client";
 
-const installSnippet =
-  '<script src="http://localhost:3000/axcell-widget.js"></script>';
+import { useEffect, useState } from "react";
+import Sidebar from "../components/Sidebar";
+import { supabase } from "../../lib/supabase";
+
+function createWidgetKey() {
+  return `wpk_${crypto.randomUUID().replaceAll("-", "")}`;
+}
 
 export default function InstallPage() {
+  const [widgetKey, setWidgetKey] = useState("");
+
+  useEffect(() => {
+    const loadWidgetKey = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        alert(userError.message);
+        return;
+      }
+
+      if (!user) {
+        return;
+      }
+
+      const { data: company, error: companyError } = await supabase
+        .from("companies")
+        .select("id, widget_public_key")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (companyError) {
+        alert(companyError.message);
+        return;
+      }
+
+      if (!company) {
+        return;
+      }
+
+      if (company.widget_public_key) {
+        setWidgetKey(company.widget_public_key);
+        return;
+      }
+
+      const nextWidgetKey = createWidgetKey();
+      const { data, error } = await supabase
+        .from("companies")
+        .update({ widget_public_key: nextWidgetKey })
+        .eq("id", company.id)
+        .select("widget_public_key")
+        .single();
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      setWidgetKey(data.widget_public_key);
+    };
+
+    loadWidgetKey();
+  }, []);
+
+  const installSnippet = widgetKey
+    ? `<script src="http://localhost:3000/axcell-widget.js" data-widget-key="${widgetKey}"></script>`
+    : "Save company settings first, then reload this page.";
+
   return (
     <main className="min-h-screen bg-black text-white">
       <Sidebar />

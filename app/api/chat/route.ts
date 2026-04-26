@@ -7,6 +7,7 @@ import {
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
 const placeholderReply = "Tak for din besked. Vi vender tilbage hurtigst muligt.";
@@ -21,6 +22,11 @@ const escalationTriggers = [
   "damaged item",
   "complaint",
 ];
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
 
 type OpenAIResponse = {
   output_text?: string;
@@ -48,6 +54,13 @@ function extractOpenAIText(data: OpenAIResponse) {
 
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+function chatJson(data: unknown, status = 200) {
+  return Response.json(data, {
+    status,
+    headers: corsHeaders,
+  });
 }
 
 function getEscalationTrigger(message: string) {
@@ -82,8 +95,17 @@ function formatKnowledgeSection(question: string) {
   return question.trim();
 }
 
+export function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json();
+  const widgetKey =
+    typeof body.widget_key === "string" ? body.widget_key.trim() : "";
   const customerName =
     typeof body.customer_name === "string" ? body.customer_name.trim() : "";
   const customerEmail =
@@ -96,60 +118,89 @@ export async function POST(request: NextRequest) {
       : "";
 
   if (!customerName || !message) {
-    return Response.json(
-      { error: "customer_name and message are required." },
-      { status: 400 }
-    );
+    return chatJson({ error: "customer_name and message are required." }, 400);
   }
 
   if (!openaiApiKey) {
-    return Response.json({ error: "OpenAI is not configured." }, { status: 500 });
+    return chatJson({ error: "OpenAI is not configured." }, 500);
   }
 
-  const session = parseSupabaseSession(
-    request.cookies.get(SUPABASE_SESSION_COOKIE)?.value
-  );
-
-  if (!session?.access_token) {
-    return Response.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  let supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-    global: {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    },
   });
+  let company: { id: string } | null = null;
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser(session.access_token);
+  if (widgetKey) {
+    if (!supabaseServiceRoleKey) {
+      return chatJson({ error: "Public widget chat is not configured." }, 500);
+    }
 
-  if (userError || !user) {
-    return Response.json({ error: "Unauthorized." }, { status: 401 });
-  }
+    supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
 
-  const { data: company, error: companyError } = await supabase
-    .from("companies")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+    const { data, error } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("widget_public_key", widgetKey)
+      .maybeSingle();
 
-  if (companyError) {
-    return Response.json({ error: companyError.message }, { status: 500 });
+    if (error) {
+      return chatJson({ error: error.message }, 500);
+    }
+
+    company = data;
+  } else {
+    const session = parseSupabaseSession(
+      request.cookies.get(SUPABASE_SESSION_COOKIE)?.value
+    );
+
+    if (!session?.access_token) {
+      return chatJson({ error: "Unauthorized." }, 401);
+    }
+
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    });
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(session.access_token);
+
+    if (userError || !user) {
+      return chatJson({ error: "Unauthorized." }, 401);
+    }
+
+    const { data, error } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      return chatJson({ error: error.message }, 500);
+    }
+
+    company = data;
   }
 
   if (!company) {
-    return Response.json(
-      { error: "Save company settings before testing chat." },
-      { status: 400 }
-    );
+    return chatJson({ error: "Company not found." }, 404);
   }
 
   const { data: knowledgeRows, error: knowledgeError } = await supabase
@@ -158,7 +209,7 @@ export async function POST(request: NextRequest) {
     .eq("company_id", company.id);
 
   if (knowledgeError) {
-    return Response.json({ error: knowledgeError.message }, { status: 500 });
+    return chatJson({ error: knowledgeError.message }, 500);
   }
 
   const knowledge = truncate(
@@ -198,10 +249,7 @@ export async function POST(request: NextRequest) {
       body: openaiErrorBody,
     });
 
-    return Response.json(
-      { error: "Could not generate a reply right now." },
-      { status: 502 }
-    );
+    return chatJson({ error: "Could not generate a reply right now." }, 502);
   }
 
   const openaiData = (await openaiResponse.json()) as OpenAIResponse;
@@ -222,7 +270,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return chatJson({ error: error.message }, 500);
   }
 
   if (escalationTrigger) {
@@ -237,9 +285,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (caseError) {
-      return Response.json({ error: caseError.message }, { status: 500 });
+      return chatJson({ error: caseError.message }, 500);
     }
   }
 
-  return Response.json({ reply });
+  return chatJson({ reply });
 }
