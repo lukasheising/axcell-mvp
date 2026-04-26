@@ -25,6 +25,10 @@ export default function Sidebar() {
         <Link href="/cases" className="text-gray-300 hover:text-white">
           Cases
         </Link>
+
+        <Link href="/install" className="text-gray-300 hover:text-white">
+          Install
+        </Link>
       </nav>
     </div>
   );
