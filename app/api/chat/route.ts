@@ -1,7 +1,31 @@
+import { createClient } from "@supabase/supabase-js";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
+};
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const fallbackReply = "Tak for din besked. Vi vender tilbage hurtigst muligt.";
+const maxMessageLength = 2000;
+const maxKnowledgeLength = 4000;
+
+type KnowledgeEntry = {
+  question: string;
+  answer: string;
+};
+
+type OpenAIResponse = {
+  output_text?: string;
+  output?: Array<{
+    content?: Array<{
+      type?: string;
+      text?: string;
+    }>;
+  }>;
 };
 
 export function OPTIONS() {
@@ -11,21 +35,128 @@ export function OPTIONS() {
   });
 }
 
-export async function POST(request: Request) {
-  const body = await request.json();
-  const message = typeof body.message === "string" ? body.message.trim() : "";
+function chatJson(data: unknown, status = 200) {
+  return Response.json(data, {
+    status,
+    headers: corsHeaders,
+  });
+}
 
-  if (!message) {
-    return Response.json(
-      { error: "Message is required." },
-      { status: 400, headers: corsHeaders }
-    );
+function extractOpenAIText(data: OpenAIResponse) {
+  if (typeof data.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
   }
 
-  return Response.json(
-    {
-      reply: "Tak for din besked. Axcell API svarer nu fra backend.",
-    },
-    { headers: corsHeaders }
+  return (
+    data.output
+      ?.flatMap((item) => item.content ?? [])
+      .map((content) => content.text)
+      .find((text): text is string => Boolean(text?.trim()))
+      ?.trim() ?? ""
   );
+}
+
+function getRelevantKnowledge(entries: KnowledgeEntry[], message: string) {
+  const words = message
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((word) => word.length > 2);
+
+  return entries
+    .map((entry) => {
+      const searchable = `${entry.question} ${entry.answer}`.toLowerCase();
+      const score = words.reduce(
+        (total, word) => total + (searchable.includes(word) ? 1 : 0),
+        0
+      );
+
+      return { ...entry, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map((entry) => `${entry.question}:\n${entry.answer.trim()}`)
+    .join("\n\n")
+    .slice(0, maxKnowledgeLength);
+}
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  const message =
+    typeof body.message === "string"
+      ? body.message.trim().slice(0, maxMessageLength)
+      : "";
+  const widgetKey =
+    typeof body.widget_key === "string" ? body.widget_key.trim() : "";
+
+  if (!message) {
+    return chatJson({ error: "Message is required." }, 400);
+  }
+
+  if (!supabaseServiceRoleKey) {
+    return chatJson({ error: "Supabase service role is not configured." }, 500);
+  }
+
+  if (!openaiApiKey) {
+    return chatJson({ error: "OpenAI is not configured." }, 500);
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const companyQuery = supabase.from("companies").select("id").limit(1);
+  const { data: companies, error: companyError } = widgetKey
+    ? await companyQuery.eq("widget_public_key", widgetKey)
+    : await companyQuery;
+
+  if (companyError) {
+    return chatJson({ error: companyError.message }, 500);
+  }
+
+  const company = companies?.[0];
+
+  if (!company) {
+    return chatJson({ error: "Company not found." }, 404);
+  }
+
+  const { data: knowledgeRows, error: knowledgeError } = await supabase
+    .from("knowledge_base")
+    .select("question, answer")
+    .eq("company_id", company.id);
+
+  if (knowledgeError) {
+    return chatJson({ error: knowledgeError.message }, 500);
+  }
+
+  const knowledge = getRelevantKnowledge(knowledgeRows ?? [], message);
+
+  const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openaiApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-5.4-mini",
+      store: false,
+      max_output_tokens: 220,
+      instructions:
+        "You are Axcell, a customer support assistant for an e-commerce company. Answer in Danish. Answer only using the provided FAQ knowledge. If the FAQ knowledge does not contain enough information to answer, say you do not know and that the team will follow up. Do not invent shipping providers, refund promises, order status, discounts, prices, delivery times, or commitments. Keep the reply concise and helpful.",
+      input: `FAQ knowledge:\n${
+        knowledge || "No FAQ knowledge has been saved yet."
+      }\n\nCustomer message: ${message}`,
+    }),
+  });
+
+  if (!openaiResponse.ok) {
+    return chatJson({ error: "Could not generate a reply right now." }, 502);
+  }
+
+  const openaiData = (await openaiResponse.json()) as OpenAIResponse;
+  const reply = extractOpenAIText(openaiData) || fallbackReply;
+
+  return chatJson({ reply });
 }

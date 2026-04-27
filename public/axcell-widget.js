@@ -2,6 +2,9 @@
   if (window.__AXCELL_WIDGET_LOADED__) return;
   window.__AXCELL_WIDGET_LOADED__ = true;
 
+  var widgetScript = document.currentScript;
+  var widgetKey = widgetScript ? widgetScript.getAttribute("data-widget-key") : "";
+
   function injectWidget() {
     if (document.getElementById("axcell-widget-button")) return;
 
@@ -84,11 +87,11 @@
         var response = await fetch(
           "https://axcell-mvp-git-main-lukasheising-8122s-projects.vercel.app/api/chat",
           {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: text }),
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ message: text, widget_key: widgetKey }),
           }
         );
         var data = await response.json();
