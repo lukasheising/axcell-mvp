@@ -158,5 +158,18 @@ export async function POST(request: Request) {
   const openaiData = (await openaiResponse.json()) as OpenAIResponse;
   const reply = extractOpenAIText(openaiData) || fallbackReply;
 
+  const { error: conversationError } = await supabase
+    .from("conversations")
+    .insert({
+      company_id: company.id,
+      customer_message: message,
+      ai_response: reply,
+      status: "resolved",
+    });
+
+  if (conversationError) {
+    console.error("Failed to store chat conversation", conversationError);
+  }
+
   return chatJson({ reply });
 }
