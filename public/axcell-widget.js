@@ -18,11 +18,21 @@
     box.style.border = "1px solid #333";
     box.style.borderRadius = "18px";
     box.style.zIndex = "999999";
-    box.style.padding = "16px";
     box.style.boxShadow = "0 10px 30px rgba(0,0,0,0.35)";
+    box.style.overflow = "hidden";
+    box.style.fontFamily = "Arial, sans-serif";
+
     box.innerHTML =
-      "<h3 style='margin:0 0 12px;font-size:16px;'>Axcell Support</h3>" +
-      "<p style='font-size:14px;color:#ccc;'>Hej 👋 Hvordan kan vi hjælpe?</p>";
+      "<div style='padding:16px;border-bottom:1px solid #333;'>" +
+      "<strong>Axcell Support</strong>" +
+      "</div>" +
+      "<div id='axcell-widget-messages' style='height:285px;padding:16px;overflow-y:auto;font-size:14px;color:#ddd;'>" +
+      "<div style='margin-bottom:10px;'>Hej 👋 Hvordan kan vi hjælpe?</div>" +
+      "</div>" +
+      "<div style='display:flex;gap:8px;padding:12px;border-top:1px solid #333;'>" +
+      "<input id='axcell-widget-input' placeholder='Skriv her...' style='flex:1;background:#000;color:#fff;border:1px solid #333;border-radius:999px;padding:10px;font-size:14px;outline:none;' />" +
+      "<button id='axcell-widget-send' style='background:#fff;color:#000;border:none;border-radius:999px;padding:10px 14px;font-size:14px;cursor:pointer;'>Send</button>" +
+      "</div>";
 
     var button = document.createElement("button");
     button.id = "axcell-widget-button";
@@ -45,6 +55,39 @@
 
     document.body.appendChild(box);
     document.body.appendChild(button);
+
+    var input = document.getElementById("axcell-widget-input");
+    var send = document.getElementById("axcell-widget-send");
+    var messages = document.getElementById("axcell-widget-messages");
+
+    function sendMessage() {
+      var text = input.value.trim();
+      if (!text) return;
+
+      var userMessage = document.createElement("div");
+      userMessage.style.marginBottom = "10px";
+      userMessage.style.textAlign = "right";
+      userMessage.innerText = text;
+      messages.appendChild(userMessage);
+
+      input.value = "";
+
+      var botMessage = document.createElement("div");
+      botMessage.style.marginBottom = "10px";
+      botMessage.style.color = "#aaa";
+      botMessage.innerText = "Tak. Vi vender tilbage hurtigst muligt.";
+      messages.appendChild(botMessage);
+
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    send.onclick = sendMessage;
+
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        sendMessage();
+      }
+    });
   }
 
   if (document.readyState === "loading") {
