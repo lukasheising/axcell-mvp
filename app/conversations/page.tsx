@@ -6,10 +6,10 @@ import { supabase } from "../../lib/supabase";
 
 type Conversation = {
   id: string;
-  customer_name: string;
-  customer_email: string | null;
-  issue_type: string;
-  status: string;
+  customer_name?: string | null;
+  customer_message: string;
+  ai_response: string;
+  status: string | null;
   created_at: string;
 };
 
@@ -49,9 +49,7 @@ export default function ConversationsPage() {
 
       const { data, error } = await supabase
         .from("conversations")
-        .select(
-          "id, customer_name, customer_email, issue_type, status, created_at"
-        )
+        .select("*")
         .eq("company_id", company.id)
         .order("created_at", { ascending: false });
 
@@ -81,8 +79,8 @@ export default function ConversationsPage() {
             <thead className="border-b border-zinc-800 text-sm text-gray-400">
               <tr>
                 <th className="p-4 font-medium">Customer</th>
-                <th className="p-4 font-medium">Email</th>
-                <th className="p-4 font-medium">Issue</th>
+                <th className="p-4 font-medium">Customer message</th>
+                <th className="p-4 font-medium">AI response</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="p-4 font-medium">Created</th>
               </tr>
@@ -100,15 +98,17 @@ export default function ConversationsPage() {
                     key={conversation.id}
                     className="border-b border-zinc-800 last:border-b-0"
                   >
-                    <td className="p-4">{conversation.customer_name}</td>
-                    <td className="p-4 text-gray-300">
-                      {conversation.customer_email ?? "-"}
+                    <td className="p-4">
+                      {conversation.customer_name || "Ukendt kunde"}
                     </td>
                     <td className="p-4 text-gray-300">
-                      {conversation.issue_type}
+                      {conversation.customer_message}
                     </td>
                     <td className="p-4 text-gray-300">
-                      {conversation.status}
+                      {conversation.ai_response}
+                    </td>
+                    <td className="p-4 text-gray-300">
+                      {conversation.status ?? "resolved"}
                     </td>
                     <td className="p-4 text-gray-300">
                       {new Date(conversation.created_at).toLocaleString()}
