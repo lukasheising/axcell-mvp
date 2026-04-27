@@ -7,8 +7,9 @@ import { supabase } from "../../lib/supabase";
 type Conversation = {
   id: string;
   customer_name?: string | null;
-  customer_message: string;
-  ai_response: string;
+  customer_message?: string | null;
+  ai_response?: string | null;
+  transcript?: string | null;
   status: string | null;
   created_at: string;
 };
@@ -102,10 +103,10 @@ export default function ConversationsPage() {
                       {conversation.customer_name || "Ukendt kunde"}
                     </td>
                     <td className="p-4 text-gray-300">
-                      {conversation.customer_message}
+                      {conversation.customer_message || conversation.transcript}
                     </td>
                     <td className="p-4 text-gray-300">
-                      {conversation.ai_response}
+                      {conversation.ai_response || ""}
                     </td>
                     <td className="p-4 text-gray-300">
                       {conversation.status ?? "resolved"}
