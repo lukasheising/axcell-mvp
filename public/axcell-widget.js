@@ -60,7 +60,7 @@
     var send = document.getElementById("axcell-widget-send");
     var messages = document.getElementById("axcell-widget-messages");
 
-    function sendMessage() {
+    async function sendMessage() {
       var text = input.value.trim();
       if (!text) return;
 
@@ -75,8 +75,25 @@
       var botMessage = document.createElement("div");
       botMessage.style.marginBottom = "10px";
       botMessage.style.color = "#aaa";
-      botMessage.innerText = "Tak. Vi vender tilbage hurtigst muligt.";
+      botMessage.innerText = "Sender...";
       messages.appendChild(botMessage);
+
+      messages.scrollTop = messages.scrollHeight;
+
+      try {
+        var response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message: text }),
+        });
+        var data = await response.json();
+
+        botMessage.innerText = data.reply || "Der opstod en fejl. Prøv igen.";
+      } catch {
+        botMessage.innerText = "Der opstod en fejl. Prøv igen.";
+      }
 
       messages.scrollTop = messages.scrollHeight;
     }
