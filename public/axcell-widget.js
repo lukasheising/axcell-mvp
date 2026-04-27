@@ -81,13 +81,16 @@
       messages.scrollTop = messages.scrollHeight;
 
       try {
-        var response = await fetch("/api/chat", {
+        var response = await fetch(
+          "https://axcell-mvp-git-main-lukasheising-8122s-projects.vercel.app/api/chat",
+          {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ message: text }),
-        });
+          }
+        );
         var data = await response.json();
 
         botMessage.innerText = data.reply || "Der opstod en fejl. Prøv igen.";
