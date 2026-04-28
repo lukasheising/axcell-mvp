@@ -6,12 +6,19 @@ import { supabase } from "../../lib/supabase";
 
 type Case = {
   id: string;
-  customer_name: string;
-  issue_type: string;
-  priority: string;
-  status: string;
-  created_at: string;
+  customer_name?: string | null;
+  issue_type?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  created_at?: string | null;
 };
+
+const caseTypes = [
+  "Complaints",
+  "Damage reports",
+  "Manual follow-ups",
+  "Urgent jobs",
+] as const;
 
 export default function CasesPage() {
   const [cases, setCases] = useState<Case[]>([]);
@@ -71,15 +78,27 @@ export default function CasesPage() {
       <div className="ml-64 p-10 max-w-6xl">
         <h1 className="text-4xl font-bold mb-4">Cases</h1>
         <p className="text-gray-400 mb-8">
-          Customer issues that need follow-up.
+          Complaints, damage reports, manual follow-ups, and urgent window
+          cleaning jobs that need attention.
         </p>
+
+        <div className="mb-6 grid grid-cols-4 gap-4">
+          {caseTypes.map((caseType) => (
+            <div key={caseType} className="rounded-xl bg-zinc-900 p-4">
+              <h2 className="text-sm font-medium text-gray-400">
+                {caseType}
+              </h2>
+              <p className="mt-2 text-2xl font-semibold">0</p>
+            </div>
+          ))}
+        </div>
 
         <div className="overflow-hidden rounded-xl bg-zinc-900">
           <table className="w-full text-left">
             <thead className="border-b border-zinc-800 text-sm text-gray-400">
               <tr>
                 <th className="p-4 font-medium">Customer</th>
-                <th className="p-4 font-medium">Issue</th>
+                <th className="p-4 font-medium">Case type</th>
                 <th className="p-4 font-medium">Priority</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="p-4 font-medium">Created</th>
@@ -89,7 +108,7 @@ export default function CasesPage() {
               {cases.length === 0 ? (
                 <tr>
                   <td className="p-4 text-gray-400" colSpan={5}>
-                    No cases yet.
+                    No complaint, damage, follow-up, or urgent job cases yet.
                   </td>
                 </tr>
               ) : (
@@ -98,18 +117,22 @@ export default function CasesPage() {
                     key={customerCase.id}
                     className="border-b border-zinc-800 last:border-b-0"
                   >
-                    <td className="p-4">{customerCase.customer_name}</td>
-                    <td className="p-4 text-gray-300">
-                      {customerCase.issue_type}
+                    <td className="p-4">
+                      {customerCase.customer_name || "Unknown customer"}
                     </td>
                     <td className="p-4 text-gray-300">
-                      {customerCase.priority}
+                      {customerCase.issue_type || "Manual follow-up"}
                     </td>
                     <td className="p-4 text-gray-300">
-                      {customerCase.status}
+                      {customerCase.priority || "No priority saved"}
                     </td>
                     <td className="p-4 text-gray-300">
-                      {new Date(customerCase.created_at).toLocaleString()}
+                      {customerCase.status || "No status saved"}
+                    </td>
+                    <td className="p-4 text-gray-300">
+                      {customerCase.created_at
+                        ? new Date(customerCase.created_at).toLocaleString()
+                        : "No date saved"}
                     </td>
                   </tr>
                 ))

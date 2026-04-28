@@ -5,21 +5,23 @@ import Sidebar from "../components/Sidebar";
 import { supabase } from "../../lib/supabase";
 
 const knowledgeFields = [
-  "Shipping policy",
-  "Return policy",
-  "Refund policy",
-  "Product FAQ",
-  "General FAQ",
+  "Price per window type",
+  "Subscription discount",
+  "Scraping surcharge",
+  "Interior cleaning pricing",
+  "Service areas",
+  "General rules",
 ] as const;
 
 type KnowledgeField = (typeof knowledgeFields)[number];
 
 const emptyEntries: Record<KnowledgeField, string> = {
-  "Shipping policy": "",
-  "Return policy": "",
-  "Refund policy": "",
-  "Product FAQ": "",
-  "General FAQ": "",
+  "Price per window type": "",
+  "Subscription discount": "",
+  "Scraping surcharge": "",
+  "Interior cleaning pricing": "",
+  "Service areas": "",
+  "General rules": "",
 };
 
 export default function KnowledgePage() {
@@ -86,7 +88,7 @@ export default function KnowledgePage() {
                   [entry.question]: entry.answer,
                 }
               : current,
-          emptyEntries
+          { ...emptyEntries }
         )
       );
     };
@@ -103,20 +105,18 @@ export default function KnowledgePage() {
     }
 
     if (!company) {
-      alert("Save your company settings before adding knowledge base entries.");
+      alert("Save your company settings before adding service rules.");
       return;
     }
 
-    const rows = knowledgeFields
-      .map((question) => ({
-        company_id: company.id,
-        question,
-        answer: entries[question].trim(),
-      }))
-      .filter((entry) => entry.answer);
+    const rows = knowledgeFields.map((question) => ({
+      company_id: company.id,
+      question,
+      answer: entries[question].trim(),
+    }));
 
-    if (rows.length === 0) {
-      alert("Add at least one FAQ entry before saving.");
+    if (!rows.some((entry) => entry.answer)) {
+      alert("Add at least one service or pricing rule before saving.");
       return;
     }
 
@@ -133,7 +133,7 @@ export default function KnowledgePage() {
       return;
     }
 
-    alert("Knowledge base saved");
+    alert("Service setup saved");
   };
 
   return (
@@ -141,9 +141,10 @@ export default function KnowledgePage() {
       <Sidebar />
 
       <div className="ml-64 p-10 max-w-5xl">
-        <h1 className="text-4xl font-bold mb-4">Knowledge Base</h1>
+        <h1 className="text-4xl font-bold mb-4">Service & Pricing Setup</h1>
         <p className="text-gray-400 mb-8">
-          Information the AI should use when answering customers.
+          Rules the AI receptionist should use when answering window cleaning
+          customers.
         </p>
 
         <div className="space-y-6">
@@ -167,7 +168,7 @@ export default function KnowledgePage() {
             disabled={saving}
             className="bg-white text-black px-6 py-3 rounded-xl font-semibold disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save knowledge base"}
+            {saving ? "Saving..." : "Save service setup"}
           </button>
         </div>
       </div>

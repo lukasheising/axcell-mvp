@@ -15,7 +15,11 @@ export default function Sidebar() {
         </Link>
 
         <Link href="/knowledge" className="text-gray-300 hover:text-white">
-          Knowledge Base
+          Service Setup
+        </Link>
+
+        <Link href="/new-request" className="text-gray-300 hover:text-white">
+          New Request
         </Link>
 
         <Link href="/conversations" className="text-gray-300 hover:text-white">

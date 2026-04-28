@@ -4,8 +4,59 @@ import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { supabase } from "../../lib/supabase";
 
+const profileFields = [
+  {
+    key: "Company phone number",
+    legacyKey: "",
+    label: "Phone number",
+    placeholder: "+45 12 34 56 78",
+    type: "input",
+  },
+  {
+    key: "Company service areas",
+    legacyKey: "Service areas",
+    label: "Service areas",
+    placeholder: "Copenhagen, Frederiksberg, Gentofte",
+    type: "textarea",
+  },
+  {
+    key: "Company opening hours",
+    legacyKey: "Opening hours",
+    label: "Opening hours",
+    placeholder: "Monday-Friday 08:00-17:00, Saturday 09:00-14:00",
+    type: "textarea",
+  },
+  {
+    key: "Emergency jobs accepted",
+    legacyKey: "Emergency jobs",
+    label: "Emergency jobs",
+    placeholder: "",
+    type: "select",
+  },
+  {
+    key: "General company info",
+    legacyKey: "",
+    label: "General company info",
+    placeholder:
+      "What should the AI receptionist know about your window cleaning company?",
+    type: "textarea",
+  },
+] as const;
+
+type ProfileField = (typeof profileFields)[number]["key"];
+
+const emptyProfile: Record<ProfileField, string> = {
+  "Company phone number": "",
+  "Company service areas": "",
+  "Company opening hours": "",
+  "Emergency jobs accepted": "No",
+  "General company info": "",
+};
+
 export default function SettingsPage() {
   const [companyName, setCompanyName] = useState("");
+  const [profile, setProfile] =
+    useState<Record<ProfileField, string>>(emptyProfile);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -26,7 +77,7 @@ export default function SettingsPage() {
 
       const { data, error } = await supabase
         .from("companies")
-        .select("name")
+        .select("id, name")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -38,6 +89,39 @@ export default function SettingsPage() {
       if (data?.name) {
         setCompanyName(data.name);
       }
+
+      if (!data?.id) {
+        return;
+      }
+
+      const { data: profileRows, error: profileError } = await supabase
+        .from("knowledge_base")
+        .select("question, answer")
+        .eq("company_id", data.id);
+
+      if (profileError) {
+        alert(profileError.message);
+        return;
+      }
+
+      setProfile(
+        profileRows.reduce<Record<ProfileField, string>>(
+          (current, entry) => {
+            const matchingField = profileFields.find(
+              (field) =>
+                field.key === entry.question || field.legacyKey === entry.question
+            );
+
+            return matchingField
+              ? {
+                  ...current,
+                  [matchingField.key]: entry.answer,
+                }
+              : current;
+          },
+          { ...emptyProfile }
+        )
+      );
     };
 
     loadCompany();
@@ -66,17 +150,33 @@ export default function SettingsPage() {
         },
         { onConflict: "user_id" }
       )
-      .select("name")
+      .select("id, name")
       .single();
 
-    setSaving(false);
-
     if (error) {
+      setSaving(false);
       alert(error.message);
       return;
     }
 
-    alert("Company saved");
+    const profileRows = profileFields.map((field) => ({
+      company_id: data.id,
+      question: field.key,
+      answer: profile[field.key].trim(),
+    }));
+
+    const { error: profileError } = await supabase
+      .from("knowledge_base")
+      .upsert(profileRows, { onConflict: "company_id,question" });
+
+    setSaving(false);
+
+    if (profileError) {
+      alert(profileError.message);
+      return;
+    }
+
+    alert("Company settings saved");
     setCompanyName(data.name);
   };
 
@@ -87,16 +187,69 @@ export default function SettingsPage() {
       <div className="ml-64 p-10 max-w-4xl">
         <h1 className="text-4xl font-bold mb-4">Company Settings</h1>
         <p className="text-gray-400 mb-8">
-          Save your company profile to Supabase.
+          Tell the AI receptionist how your window cleaning company works.
         </p>
 
         <div className="space-y-6">
-          <input
-            className="w-full bg-zinc-900 p-4 rounded-xl"
-            placeholder="Company name"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-          />
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-gray-300">
+              Company name
+            </span>
+            <input
+              className="w-full rounded-xl bg-zinc-900 p-4"
+              placeholder="Company name"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+            />
+          </label>
+
+          {profileFields.map((field) => (
+            <label key={field.key} className="block">
+              <span className="mb-2 block text-sm font-medium text-gray-300">
+                {field.label}
+              </span>
+
+              {field.type === "select" ? (
+                <select
+                  className="w-full rounded-xl bg-zinc-900 p-4"
+                  value={profile[field.key]}
+                  onChange={(e) =>
+                    setProfile((current) => ({
+                      ...current,
+                      [field.key]: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="No">No emergency jobs</option>
+                  <option value="Yes">Accept emergency jobs</option>
+                </select>
+              ) : field.type === "textarea" ? (
+                <textarea
+                  className="h-32 w-full rounded-xl bg-zinc-900 p-4"
+                  placeholder={field.placeholder}
+                  value={profile[field.key]}
+                  onChange={(e) =>
+                    setProfile((current) => ({
+                      ...current,
+                      [field.key]: e.target.value,
+                    }))
+                  }
+                />
+              ) : (
+                <input
+                  className="w-full rounded-xl bg-zinc-900 p-4"
+                  placeholder={field.placeholder}
+                  value={profile[field.key]}
+                  onChange={(e) =>
+                    setProfile((current) => ({
+                      ...current,
+                      [field.key]: e.target.value,
+                    }))
+                  }
+                />
+              )}
+            </label>
+          ))}
 
           <button
             onClick={saveCompany}

@@ -6,13 +6,17 @@ import { supabase } from "../../lib/supabase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [checkingSession, setCheckingSession] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         router.replace("/");
+        return;
       }
+
+      setCheckingSession(false);
     });
 
     const {
@@ -39,20 +43,26 @@ export default function LoginPage() {
       <div className="bg-zinc-900 p-8 rounded-xl w-96">
         <h1 className="text-2xl font-bold mb-6">Axcell Login</h1>
 
-        <input
-          type="email"
-          placeholder="Din email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 rounded bg-zinc-800 mb-4"
-        />
+        {checkingSession ? (
+          <p className="text-gray-400">Checking session...</p>
+        ) : (
+          <>
+            <input
+              type="email"
+              placeholder="Din email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 rounded bg-zinc-800 mb-4"
+            />
 
-        <button
-          onClick={handleLogin}
-          className="w-full bg-white text-black p-3 rounded"
-        >
-          Login
-        </button>
+            <button
+              onClick={handleLogin}
+              className="w-full bg-white text-black p-3 rounded"
+            >
+              Login
+            </button>
+          </>
+        )}
       </div>
     </main>
   );

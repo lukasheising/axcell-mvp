@@ -10,11 +10,19 @@ import {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const protectedRoutes = ["/", "/settings", "/knowledge", "/conversations", "/cases"];
+const protectedRoutes = [
+  "/",
+  "/settings",
+  "/knowledge",
+  "/new-request",
+  "/conversations",
+  "/cases",
+];
 
 function isProtectedRoute(pathname: string) {
   return protectedRoutes.some(
-    (route) => pathname === route || (route !== "/" && pathname.startsWith(`${route}/`))
+    (route) =>
+      pathname === route || (route !== "/" && pathname.startsWith(`${route}/`))
   );
 }
 
@@ -96,9 +104,15 @@ export const config = {
   matcher: [
     "/",
     "/login",
+    "/settings",
     "/settings/:path*",
+    "/knowledge",
     "/knowledge/:path*",
+    "/new-request",
+    "/new-request/:path*",
+    "/conversations",
     "/conversations/:path*",
+    "/cases",
     "/cases/:path*",
   ],
 };
