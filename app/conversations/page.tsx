@@ -151,6 +151,34 @@ function RequestDetails({
   );
 }
 
+function getDisplayedRequestType(conversation: Conversation) {
+  return (
+    parseIntakeDetails(conversation.customer_message)?.["Request type"] ||
+    getRequestType(conversation)
+  );
+}
+
+function isUrgentJob(conversation: Conversation) {
+  const intakeDetails = parseIntakeDetails(conversation.customer_message);
+
+  return (
+    intakeDetails?.Urgency === "Urgent" ||
+    conversation.customer_message?.toLowerCase().includes("urgency: urgent") ||
+    false
+  );
+}
+
+function getSummaryCount(
+  conversations: Conversation[],
+  requestType: (typeof requestTypes)[number]
+) {
+  return conversations.filter((conversation) =>
+    requestType === "Urgent job"
+      ? isUrgentJob(conversation)
+      : getDisplayedRequestType(conversation) === requestType
+  ).length;
+}
+
 export default function ConversationsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
@@ -219,7 +247,9 @@ export default function ConversationsPage() {
               <h2 className="text-sm font-medium text-gray-400">
                 {requestType}
               </h2>
-              <p className="mt-2 text-2xl font-semibold">0</p>
+              <p className="mt-2 text-2xl font-semibold">
+                {getSummaryCount(conversations, requestType)}
+              </p>
             </div>
           ))}
         </div>
@@ -250,9 +280,7 @@ export default function ConversationsPage() {
                     className="border-b border-zinc-800 last:border-b-0"
                   >
                     <td className="p-4 text-gray-300">
-                      {parseIntakeDetails(conversation.customer_message)?.[
-                        "Request type"
-                      ] || getRequestType(conversation)}
+                      {getDisplayedRequestType(conversation)}
                     </td>
                     <td className="p-4">
                       {conversation.customer_name || "Unknown customer"}
