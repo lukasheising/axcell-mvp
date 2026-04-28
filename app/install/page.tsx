@@ -72,6 +72,16 @@ export default function InstallPage() {
   const installSnippet = widgetKey
     ? `<script src="${widgetBaseUrl}/axcell-widget.js" data-widget-key="${widgetKey}"></script>`
     : "Save company settings first, then reload this page.";
+  const demoHtml = widgetKey
+    ? `<!DOCTYPE html>
+<html>
+  <body>
+    <h1>Window Cleaning Demo</h1>
+    <p>This page is outside the Axcell app.</p>
+    ${installSnippet}
+  </body>
+</html>`
+    : "Save company settings first, then reload this page.";
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -86,6 +96,13 @@ export default function InstallPage() {
 
         <pre className="overflow-x-auto rounded-xl bg-zinc-900 p-5 text-sm text-gray-100">
           <code>{installSnippet}</code>
+        </pre>
+
+        <h2 className="mt-8 mb-4 text-2xl font-semibold">
+          External HTML demo
+        </h2>
+        <pre className="overflow-x-auto rounded-xl bg-zinc-900 p-5 text-sm text-gray-100">
+          <code>{demoHtml}</code>
         </pre>
       </div>
     </main>

@@ -87,6 +87,7 @@ export async function POST(request: Request) {
       : "";
   const widgetKey =
     typeof body.widget_key === "string" ? body.widget_key.trim() : "";
+  const isWidgetIntake = body.source === "widget_intake";
 
   if (!message) {
     return chatJson({ error: "Message is required." }, 400);
@@ -96,8 +97,9 @@ export async function POST(request: Request) {
     return chatJson({ error: "Supabase service role is not configured." }, 500);
   }
 
-  if (!openaiApiKey) {
-    return chatJson({ error: "OpenAI is not configured." }, 500);
+  if (isWidgetIntake && !widgetKey) {
+    console.error("Widget intake missing widget_key");
+    return chatJson({ error: "Widget key is required." }, 400);
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -113,13 +115,72 @@ export async function POST(request: Request) {
     : await companyQuery;
 
   if (companyError) {
+    console.error("Failed to resolve widget company", companyError);
     return chatJson({ error: companyError.message }, 500);
   }
 
   const company = companies?.[0];
 
   if (!company) {
+    console.error("Company not found for widget request", {
+      hasWidgetKey: Boolean(widgetKey),
+    });
     return chatJson({ error: "Company not found." }, 404);
+  }
+
+  if (isWidgetIntake) {
+    const requestType =
+      typeof body.request_type === "string" && body.request_type.trim()
+        ? body.request_type.trim().slice(0, 80)
+        : "Price request";
+    const customerName =
+      typeof body.customer_name === "string"
+        ? body.customer_name.trim().slice(0, 120)
+        : "";
+    const phone =
+      typeof body.phone === "string" ? body.phone.trim().slice(0, 120) : "";
+    const address =
+      typeof body.address === "string"
+        ? body.address.trim().slice(0, 240)
+        : "";
+    const requestDetails = [
+      `Request type: ${requestType}`,
+      "Urgency: Normal",
+      `Phone: ${phone || "Not provided"}`,
+      `Address: ${address || "Not provided"}`,
+      `Message: ${message || "No message provided"}`,
+    ].join("\n");
+
+    const { data: conversation, error: conversationError } = await supabase
+      .from("conversations")
+      .insert({
+        company_id: company.id,
+        customer_name: customerName || null,
+        customer_message: requestDetails,
+        ai_response: "Widget intake request. No AI response yet.",
+        status: "open",
+      })
+      .select("id")
+      .single();
+
+    if (conversationError || !conversation) {
+      console.error("Failed to store widget intake conversation", {
+        error: conversationError,
+        companyId: company.id,
+      });
+      return chatJson(
+        { error: conversationError?.message ?? "Conversation was not saved." },
+        500
+      );
+    }
+
+    return chatJson({
+      reply: "Thanks. We received your request and will follow up soon.",
+    });
+  }
+
+  if (!openaiApiKey) {
+    return chatJson({ error: "OpenAI is not configured." }, 500);
   }
 
   const { data: knowledgeRows, error: knowledgeError } = await supabase
