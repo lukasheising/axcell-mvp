@@ -15,6 +15,7 @@ const protectedRoutes = [
   "/settings",
   "/knowledge",
   "/new-request",
+  "/price-estimator",
   "/conversations",
   "/cases",
 ];
@@ -110,6 +111,8 @@ export const config = {
     "/knowledge/:path*",
     "/new-request",
     "/new-request/:path*",
+    "/price-estimator",
+    "/price-estimator/:path*",
     "/conversations",
     "/conversations/:path*",
     "/cases",

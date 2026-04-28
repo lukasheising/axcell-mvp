@@ -22,6 +22,10 @@ export default function Sidebar() {
           New Request
         </Link>
 
+        <Link href="/price-estimator" className="text-gray-300 hover:text-white">
+          Price Estimator
+        </Link>
+
         <Link href="/conversations" className="text-gray-300 hover:text-white">
           Conversations
         </Link>
