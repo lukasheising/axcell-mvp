@@ -167,7 +167,7 @@ export default function HenvendelserPage() {
     <main className="min-h-screen bg-black text-white">
       <Sidebar />
 
-      <div className="ml-64 p-10 max-w-5xl">
+      <div className="ml-64 max-w-7xl p-10">
         <h1 className="mb-4 text-4xl font-bold">Henvendelser</h1>
         <p className="mb-8 text-gray-400">
           Indgående kundehenvendelser fra Axcell.
@@ -187,123 +187,125 @@ export default function HenvendelserPage() {
 
         {fejl ? <p className="mb-4 text-sm text-red-400">{fejl}</p> : null}
 
-        <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-          {indlaeser ? (
-            <p className="p-4 text-gray-400">Indlæser henvendelser...</p>
-          ) : henvendelser.length === 0 ? (
-            <p className="p-4 text-gray-400">Ingen henvendelser endnu.</p>
-          ) : (
-            henvendelser.map((henvendelse) => {
-              const erValgt = henvendelse.id === valgtHenvendelse?.id;
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
+          <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+            {indlaeser ? (
+              <p className="p-4 text-gray-400">Indlæser henvendelser...</p>
+            ) : henvendelser.length === 0 ? (
+              <p className="p-4 text-gray-400">Ingen henvendelser endnu.</p>
+            ) : (
+              henvendelser.map((henvendelse) => {
+                const erValgt = henvendelse.id === valgtHenvendelse?.id;
 
-              return (
-                <button
-                  key={henvendelse.id}
-                  type="button"
-                  onClick={() => {
-                    setValgtHenvendelse(henvendelse);
-                    setStatusBesked("");
-                  }}
-                  className={`grid w-full grid-cols-[16px_minmax(150px,1fr)_130px_180px_100px] items-center gap-3 border-b border-zinc-800 p-4 text-left transition last:border-b-0 hover:bg-zinc-800 ${
-                    erValgt ? "bg-zinc-800" : ""
-                  }`}
-                >
-                  <span
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                      prikFarver[henvendelse.category]
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <span className="font-medium">
-                    {henvendelse.customer_name}
-                  </span>
-                  <span className="text-gray-300">
-                    {henvendelse.customer_phone || "Intet telefonnummer"}
-                  </span>
-                  <span className="text-gray-300">
-                    {formatTidspunkt(henvendelse.received_at)}
-                  </span>
-                  <span className="text-sm text-gray-400">
-                    {statusLabels[henvendelse.status]}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
-
-        {valgtHenvendelse ? (
-          <section className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-            <h2 className="mb-5 text-2xl font-semibold">Detaljer</h2>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm text-gray-400">Navn</p>
-                <p className="mt-1">{valgtHenvendelse.customer_name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Telefonnummer</p>
-                <p className="mt-1">
-                  {valgtHenvendelse.customer_phone || "Intet telefonnummer"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Tidspunkt</p>
-                <p className="mt-1">
-                  {formatTidspunkt(valgtHenvendelse.received_at)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Type</p>
-                <p className="mt-1">
-                  {kategoriLabels[valgtHenvendelse.category]}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-400">Status</p>
-                <select
-                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3 text-white"
-                  value={valgtHenvendelse.status}
-                  disabled={gemmerStatus}
-                  onChange={(event) =>
-                    updateStatus(event.target.value as InquiryStatus)
-                  }
-                >
-                  {statusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {statusLabels[status]}
-                    </option>
-                  ))}
-                </select>
-                {statusBesked ? (
-                  <p
-                    className={`mt-2 text-sm ${
-                      statusBesked === "Kunne ikke gemme status."
-                        ? "text-red-400"
-                        : "text-gray-400"
+                return (
+                  <button
+                    key={henvendelse.id}
+                    type="button"
+                    onClick={() => {
+                      setValgtHenvendelse(henvendelse);
+                      setStatusBesked("");
+                    }}
+                    className={`grid w-full grid-cols-[16px_minmax(150px,1fr)_130px_180px_100px] items-center gap-3 border-b border-zinc-800 p-4 text-left transition last:border-b-0 hover:bg-zinc-800 ${
+                      erValgt ? "bg-zinc-800" : ""
                     }`}
                   >
-                    {statusBesked}
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                        prikFarver[henvendelse.category]
+                      }`}
+                      aria-hidden="true"
+                    />
+                    <span className="font-medium">
+                      {henvendelse.customer_name}
+                    </span>
+                    <span className="text-gray-300">
+                      {henvendelse.customer_phone || "Intet telefonnummer"}
+                    </span>
+                    <span className="text-gray-300">
+                      {formatTidspunkt(henvendelse.received_at)}
+                    </span>
+                    <span className="text-sm text-gray-400">
+                      {statusLabels[henvendelse.status]}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {valgtHenvendelse ? (
+            <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 xl:sticky xl:top-6 xl:self-start">
+              <h2 className="mb-5 text-2xl font-semibold">Detaljer</h2>
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                <div>
+                  <p className="text-sm text-gray-400">Navn</p>
+                  <p className="mt-1">{valgtHenvendelse.customer_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Telefonnummer</p>
+                  <p className="mt-1">
+                    {valgtHenvendelse.customer_phone || "Intet telefonnummer"}
                   </p>
-                ) : null}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Tidspunkt</p>
+                  <p className="mt-1">
+                    {formatTidspunkt(valgtHenvendelse.received_at)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Type</p>
+                  <p className="mt-1">
+                    {kategoriLabels[valgtHenvendelse.category]}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Status</p>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3 text-white"
+                    value={valgtHenvendelse.status}
+                    disabled={gemmerStatus}
+                    onChange={(event) =>
+                      updateStatus(event.target.value as InquiryStatus)
+                    }
+                  >
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {statusLabels[status]}
+                      </option>
+                    ))}
+                  </select>
+                  {statusBesked ? (
+                    <p
+                      className={`mt-2 text-sm ${
+                        statusBesked === "Kunne ikke gemme status."
+                          ? "text-red-400"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {statusBesked}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-            </div>
 
-            <div className="mt-6">
-              <p className="text-sm text-gray-400">Resumé</p>
-              <p className="mt-2 text-gray-200">
-                {valgtHenvendelse.summary || "Intet resumé endnu."}
-              </p>
-            </div>
+              <div className="mt-6">
+                <p className="text-sm text-gray-400">Resumé</p>
+                <p className="mt-2 text-gray-200">
+                  {valgtHenvendelse.summary || "Intet resumé endnu."}
+                </p>
+              </div>
 
-            <div className="mt-6">
-              <p className="text-sm text-gray-400">Transkript</p>
-              <p className="mt-2 whitespace-pre-line text-gray-200">
-                {valgtHenvendelse.transcript || "Intet transkript endnu."}
-              </p>
-            </div>
-          </section>
-        ) : null}
+              <div className="mt-6">
+                <p className="text-sm text-gray-400">Transkript</p>
+                <p className="mt-2 whitespace-pre-line text-gray-200">
+                  {valgtHenvendelse.transcript || "Intet transkript endnu."}
+                </p>
+              </div>
+            </section>
+          ) : null}
+        </div>
       </div>
     </main>
   );
