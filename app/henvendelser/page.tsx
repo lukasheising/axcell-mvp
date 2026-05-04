@@ -1,107 +1,127 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
+import { supabase } from "../../lib/supabase";
 
-type HenvendelsesType =
-  | "Nyt lead"
-  | "Flytning af tid"
-  | "Aflysning"
-  | "Andet";
+type InquiryCategory = "new_lead" | "reschedule" | "cancellation" | "other";
+type InquiryStatus = "new" | "in_progress" | "handled";
 
-type Henvendelse = {
+type Inquiry = {
   id: string;
-  navn: string;
-  telefonnummer: string;
-  tidspunkt: string;
-  type: HenvendelsesType;
-  resume: string;
-  transkript: string[];
+  customer_name: string;
+  customer_phone: string | null;
+  category: InquiryCategory;
+  subject: string;
+  summary: string | null;
+  transcript: string | null;
+  status: InquiryStatus;
+  received_at: string;
 };
 
-const prikFarver: Record<HenvendelsesType, string> = {
-  "Nyt lead": "bg-emerald-500",
-  "Flytning af tid": "bg-yellow-400",
-  Aflysning: "bg-red-500",
-  Andet: "bg-zinc-500",
+const kategoriLabels: Record<InquiryCategory, string> = {
+  new_lead: "Nyt lead",
+  reschedule: "Flytning af tid",
+  cancellation: "Aflysning",
+  other: "Andet",
 };
 
-const farveforklaring: HenvendelsesType[] = [
-  "Nyt lead",
-  "Flytning af tid",
-  "Aflysning",
-  "Andet",
+const statusLabels: Record<InquiryStatus, string> = {
+  new: "Ny",
+  in_progress: "I gang",
+  handled: "Behandlet",
+};
+
+const prikFarver: Record<InquiryCategory, string> = {
+  new_lead: "bg-emerald-500",
+  reschedule: "bg-yellow-400",
+  cancellation: "bg-red-500",
+  other: "bg-zinc-500",
+};
+
+const farveforklaring: InquiryCategory[] = [
+  "new_lead",
+  "reschedule",
+  "cancellation",
+  "other",
 ];
 
-const henvendelser: Henvendelse[] = [
-  {
-    id: "rasmus-jensen",
-    navn: "Rasmus Jensen",
-    telefonnummer: "22 45 67 89",
-    tidspunkt: "4. maj 2026, 10:42",
-    type: "Flytning af tid",
-    resume:
-      "Rasmus ønsker at flytte sin tid fra den 29. juni til en dato i starten af juli.",
-    transkript: [
-      "AI: Hej, du taler med Axcell. Hvordan kan jeg hjælpe?",
-      "Rasmus: Hej, jeg vil gerne flytte min tid.",
-      "AI: Hvilken dato har du tid nu?",
-      "Rasmus: Den 29. juni.",
-      "AI: Hvornår ønsker du i stedet?",
-      "Rasmus: Gerne i starten af juli.",
-    ],
-  },
-  {
-    id: "maria-holm",
-    navn: "Maria Holm",
-    telefonnummer: "30 12 44 88",
-    tidspunkt: "4. maj 2026, 11:08",
-    type: "Nyt lead",
-    resume:
-      "Maria vil gerne kontaktes om et tilbud på fast vinduespudsning hver fjerde uge.",
-    transkript: [
-      "AI: Hej, du taler med Axcell. Hvordan kan jeg hjælpe?",
-      "Maria: Jeg vil gerne høre om fast vinduespudsning.",
-      "AI: Hvad er dit telefonnummer?",
-      "Maria: Det er 30 12 44 88.",
-      "AI: Tak, vi vender tilbage med et tilbud.",
-    ],
-  },
-  {
-    id: "peter-larsen",
-    navn: "Peter Larsen",
-    telefonnummer: "28 91 10 33",
-    tidspunkt: "4. maj 2026, 11:31",
-    type: "Aflysning",
-    resume:
-      "Peter ønsker at aflyse sin kommende tid og beder om en bekræftelse på SMS.",
-    transkript: [
-      "AI: Hej, du taler med Axcell. Hvordan kan jeg hjælpe?",
-      "Peter: Jeg skal aflyse min tid.",
-      "AI: Det hjælper jeg med. Hvad er dit telefonnummer?",
-      "Peter: 28 91 10 33.",
-      "AI: Tak, vi sender en bekræftelse.",
-    ],
-  },
-  {
-    id: "line-madsen",
-    navn: "Line Madsen",
-    telefonnummer: "24 60 18 72",
-    tidspunkt: "4. maj 2026, 12:04",
-    type: "Andet",
-    resume:
-      "Line spørger, om Axcell kan pudse indvendige glaspartier i en mindre butik.",
-    transkript: [
-      "AI: Hej, du taler med Axcell. Hvordan kan jeg hjælpe?",
-      "Line: Jeg har et spørgsmål om indvendige glaspartier.",
-      "AI: Fortæl endelig lidt mere.",
-      "Line: Det er til en butik, og jeg vil gerne vide, om I tilbyder det.",
-    ],
-  },
-];
+function formatTidspunkt(value: string) {
+  return new Intl.DateTimeFormat("da-DK", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
 
 export default function HenvendelserPage() {
-  const [valgtHenvendelse, setValgtHenvendelse] = useState(henvendelser[0]);
+  const [henvendelser, setHenvendelser] = useState<Inquiry[]>([]);
+  const [valgtHenvendelse, setValgtHenvendelse] = useState<Inquiry | null>(
+    null
+  );
+  const [indlaeser, setIndlaeser] = useState(true);
+  const [fejl, setFejl] = useState("");
+
+  useEffect(() => {
+    const loadHenvendelser = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        setFejl("Kunne ikke hente bruger.");
+        setIndlaeser(false);
+        return;
+      }
+
+      if (!user) {
+        setFejl("Du skal være logget ind for at se henvendelser.");
+        setIndlaeser(false);
+        return;
+      }
+
+      const { data: company, error: companyError } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (companyError) {
+        setFejl("Kunne ikke hente virksomheden.");
+        setIndlaeser(false);
+        return;
+      }
+
+      if (!company) {
+        setIndlaeser(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("inquiries")
+        .select(
+          "id, customer_name, customer_phone, category, subject, summary, transcript, status, received_at"
+        )
+        .eq("company_id", company.id)
+        .order("received_at", { ascending: false });
+
+      if (error) {
+        setFejl("Kunne ikke hente henvendelser.");
+        setIndlaeser(false);
+        return;
+      }
+
+      const inquiries = (data ?? []) as Inquiry[];
+      setHenvendelser(inquiries);
+      setValgtHenvendelse(inquiries[0] ?? null);
+      setIndlaeser(false);
+    };
+
+    loadHenvendelser();
+  }, []);
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -114,82 +134,106 @@ export default function HenvendelserPage() {
         </p>
 
         <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-400">
-          {farveforklaring.map((type) => (
-            <div key={type} className="flex items-center gap-2">
+          {farveforklaring.map((kategori) => (
+            <div key={kategori} className="flex items-center gap-2">
               <span
-                className={`h-2.5 w-2.5 rounded-full ${prikFarver[type]}`}
+                className={`h-2.5 w-2.5 rounded-full ${prikFarver[kategori]}`}
                 aria-hidden="true"
               />
-              <span>{type}</span>
+              <span>{kategoriLabels[kategori]}</span>
             </div>
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-          {henvendelser.map((henvendelse) => {
-            const erValgt = henvendelse.id === valgtHenvendelse.id;
+        {fejl ? <p className="mb-4 text-sm text-red-400">{fejl}</p> : null}
 
-            return (
-              <button
-                key={henvendelse.id}
-                type="button"
-                onClick={() => setValgtHenvendelse(henvendelse)}
-                className={`grid w-full grid-cols-[16px_minmax(150px,1fr)_130px_180px] items-center gap-3 border-b border-zinc-800 p-4 text-left transition last:border-b-0 hover:bg-zinc-800 ${
-                  erValgt ? "bg-zinc-800" : ""
-                }`}
-              >
-                <span
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                    prikFarver[henvendelse.type]
+        <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+          {indlaeser ? (
+            <p className="p-4 text-gray-400">Indlæser henvendelser...</p>
+          ) : henvendelser.length === 0 ? (
+            <p className="p-4 text-gray-400">Ingen henvendelser endnu.</p>
+          ) : (
+            henvendelser.map((henvendelse) => {
+              const erValgt = henvendelse.id === valgtHenvendelse?.id;
+
+              return (
+                <button
+                  key={henvendelse.id}
+                  type="button"
+                  onClick={() => setValgtHenvendelse(henvendelse)}
+                  className={`grid w-full grid-cols-[16px_minmax(150px,1fr)_130px_180px] items-center gap-3 border-b border-zinc-800 p-4 text-left transition last:border-b-0 hover:bg-zinc-800 ${
+                    erValgt ? "bg-zinc-800" : ""
                   }`}
-                  aria-hidden="true"
-                />
-                <span className="font-medium">{henvendelse.navn}</span>
-                <span className="text-gray-300">
-                  {henvendelse.telefonnummer}
-                </span>
-                <span className="text-gray-300">{henvendelse.tidspunkt}</span>
-              </button>
-            );
-          })}
+                >
+                  <span
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                      prikFarver[henvendelse.category]
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="font-medium">
+                    {henvendelse.customer_name}
+                  </span>
+                  <span className="text-gray-300">
+                    {henvendelse.customer_phone || "Intet telefonnummer"}
+                  </span>
+                  <span className="text-gray-300">
+                    {formatTidspunkt(henvendelse.received_at)}
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
 
-        <section className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="mb-5 text-2xl font-semibold">Detaljer</h2>
+        {valgtHenvendelse ? (
+          <section className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+            <h2 className="mb-5 text-2xl font-semibold">Detaljer</h2>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-sm text-gray-400">Navn</p>
-              <p className="mt-1">{valgtHenvendelse.navn}</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-sm text-gray-400">Navn</p>
+                <p className="mt-1">{valgtHenvendelse.customer_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Telefonnummer</p>
+                <p className="mt-1">
+                  {valgtHenvendelse.customer_phone || "Intet telefonnummer"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Tidspunkt</p>
+                <p className="mt-1">
+                  {formatTidspunkt(valgtHenvendelse.received_at)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Type</p>
+                <p className="mt-1">
+                  {kategoriLabels[valgtHenvendelse.category]}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Status</p>
+                <p className="mt-1">{statusLabels[valgtHenvendelse.status]}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-400">Telefonnummer</p>
-              <p className="mt-1">{valgtHenvendelse.telefonnummer}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Tidspunkt</p>
-              <p className="mt-1">{valgtHenvendelse.tidspunkt}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-400">Type</p>
-              <p className="mt-1">{valgtHenvendelse.type}</p>
-            </div>
-          </div>
 
-          <div className="mt-6">
-            <p className="text-sm text-gray-400">Resumé</p>
-            <p className="mt-2 text-gray-200">{valgtHenvendelse.resume}</p>
-          </div>
-
-          <div className="mt-6">
-            <p className="text-sm text-gray-400">Transkript</p>
-            <div className="mt-2 space-y-2 text-gray-200">
-              {valgtHenvendelse.transkript.map((linje) => (
-                <p key={linje}>{linje}</p>
-              ))}
+            <div className="mt-6">
+              <p className="text-sm text-gray-400">Resumé</p>
+              <p className="mt-2 text-gray-200">
+                {valgtHenvendelse.summary || "Intet resumé endnu."}
+              </p>
             </div>
-          </div>
-        </section>
+
+            <div className="mt-6">
+              <p className="text-sm text-gray-400">Transkript</p>
+              <p className="mt-2 whitespace-pre-line text-gray-200">
+                {valgtHenvendelse.transcript || "Intet transkript endnu."}
+              </p>
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );
