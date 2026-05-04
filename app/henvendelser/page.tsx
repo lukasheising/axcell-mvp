@@ -19,6 +19,11 @@ type Inquiry = {
   received_at: string;
 };
 
+type TranscriptMessage = {
+  role: "customer" | "ai";
+  text: string;
+};
+
 const kategoriLabels: Record<InquiryCategory, string> = {
   new_lead: "Nyt lead",
   reschedule: "Flytning af tid",
@@ -56,6 +61,97 @@ function formatTidspunkt(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function parseTranscript(transcript?: string | null) {
+  if (!transcript) {
+    return [];
+  }
+
+  return transcript
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map<TranscriptMessage>((line) => {
+      if (line.startsWith("AI:")) {
+        return {
+          role: "ai",
+          text: line.slice(3).trim(),
+        };
+      }
+
+      if (line.startsWith("Kunde:")) {
+        return {
+          role: "customer",
+          text: line.slice(6).trim(),
+        };
+      }
+
+      return {
+        role: "customer",
+        text: line,
+      };
+    });
+}
+
+function TranscriptChat({ transcript }: { transcript?: string | null }) {
+  const messages = parseTranscript(transcript);
+
+  if (messages.length === 0) {
+    return <p className="mt-2 text-gray-200">Intet transkript endnu.</p>;
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-4">
+      {messages.map((message, index) => {
+        const isAi = message.role === "ai";
+
+        return (
+          <div
+            key={`${message.role}-${index}`}
+            className={`flex items-end gap-2 ${
+              isAi ? "justify-end" : "justify-start"
+            }`}
+          >
+            {!isAi ? (
+              <div
+                className="h-8 w-8 shrink-0 rounded-full bg-zinc-700"
+                aria-hidden="true"
+              />
+            ) : null}
+
+            <div
+              className={`flex max-w-[70%] flex-col ${
+                isAi ? "items-end" : "items-start"
+              }`}
+            >
+              <span className="mb-1 text-xs text-gray-500">
+                {isAi ? "AI" : "Kunde"}
+              </span>
+              <p
+                className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  isAi
+                    ? "rounded-br-md border border-zinc-700 bg-zinc-800 text-white"
+                    : "rounded-bl-md bg-zinc-950 text-gray-200"
+                }`}
+              >
+                {message.text}
+              </p>
+            </div>
+
+            {isAi ? (
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950 text-xs font-semibold text-gray-300"
+                aria-hidden="true"
+              >
+                AI
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function HenvendelserPage() {
@@ -343,9 +439,7 @@ export default function HenvendelserPage() {
 
               <div className="mt-6">
                 <p className="text-sm text-gray-400">Transkript</p>
-                <p className="mt-2 whitespace-pre-line text-gray-200">
-                  {valgtHenvendelse.transcript || "Intet transkript endnu."}
-                </p>
+                <TranscriptChat transcript={valgtHenvendelse.transcript} />
               </div>
             </section>
           ) : null}
