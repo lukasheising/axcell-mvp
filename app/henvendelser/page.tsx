@@ -65,8 +65,12 @@ export default function HenvendelserPage() {
   );
   const [indlaeser, setIndlaeser] = useState(true);
   const [fejl, setFejl] = useState("");
-  const [gemmerStatus, setGemmerStatus] = useState(false);
-  const [statusBesked, setStatusBesked] = useState("");
+  const [gemmerStatusId, setGemmerStatusId] = useState<string | null>(null);
+  const [statusBesked, setStatusBesked] = useState<{
+    id: string;
+    tekst: string;
+    erFejl?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const loadHenvendelser = async () => {
@@ -127,40 +131,70 @@ export default function HenvendelserPage() {
     loadHenvendelser();
   }, []);
 
-  const updateStatus = async (status: InquiryStatus) => {
-    if (!valgtHenvendelse) {
+  const updateStatus = async (henvendelse: Inquiry, status: string) => {
+    if (!statusOptions.includes(status as InquiryStatus)) {
       return;
     }
 
-    setGemmerStatus(true);
-    setStatusBesked("Gemmer...");
+    const nextStatus = status as InquiryStatus;
+
+    if (henvendelse.status === nextStatus) {
+      return;
+    }
+
+    const tidligereStatus = henvendelse.status;
+    const updatedHenvendelse = {
+      ...henvendelse,
+      status: nextStatus,
+    };
+
+    setGemmerStatusId(henvendelse.id);
+    setStatusBesked({ id: henvendelse.id, tekst: "Gemmer..." });
+    setHenvendelser((current) =>
+      current.map((currentHenvendelse) =>
+        currentHenvendelse.id === henvendelse.id
+          ? updatedHenvendelse
+          : currentHenvendelse
+      )
+    );
+    setValgtHenvendelse((current) =>
+      current?.id === henvendelse.id ? updatedHenvendelse : current
+    );
 
     const { error } = await supabase
       .from("inquiries")
-      .update({ status })
-      .eq("id", valgtHenvendelse.id);
+      .update({ status: nextStatus })
+      .eq("id", henvendelse.id);
 
-    setGemmerStatus(false);
+    setGemmerStatusId(null);
 
     if (error) {
-      setStatusBesked("Kunne ikke gemme status.");
+      console.error(error);
+
+      const previousHenvendelse = {
+        ...henvendelse,
+        status: tidligereStatus,
+      };
+
+      setHenvendelser((current) =>
+        current.map((currentHenvendelse) =>
+          currentHenvendelse.id === henvendelse.id
+            ? previousHenvendelse
+            : currentHenvendelse
+        )
+      );
+      setValgtHenvendelse((current) =>
+        current?.id === henvendelse.id ? previousHenvendelse : current
+      );
+      setStatusBesked({
+        id: henvendelse.id,
+        tekst: "Kunne ikke gemme status.",
+        erFejl: true,
+      });
       return;
     }
 
-    const updatedHenvendelse = {
-      ...valgtHenvendelse,
-      status,
-    };
-
-    setValgtHenvendelse(updatedHenvendelse);
-    setHenvendelser((current) =>
-      current.map((henvendelse) =>
-        henvendelse.id === updatedHenvendelse.id
-          ? updatedHenvendelse
-          : henvendelse
-      )
-    );
-    setStatusBesked("Status er gemt.");
+    setStatusBesked({ id: henvendelse.id, tekst: "Status er gemt." });
   };
 
   return (
@@ -198,13 +232,21 @@ export default function HenvendelserPage() {
                 const erValgt = henvendelse.id === valgtHenvendelse?.id;
 
                 return (
-                  <button
+                  <div
                     key={henvendelse.id}
-                    type="button"
                     onClick={() => {
                       setValgtHenvendelse(henvendelse);
-                      setStatusBesked("");
+                      setStatusBesked(null);
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setValgtHenvendelse(henvendelse);
+                        setStatusBesked(null);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
                     className={`grid w-full grid-cols-[16px_minmax(150px,1fr)_130px_180px_100px] items-center gap-3 border-b border-zinc-800 p-4 text-left transition last:border-b-0 hover:bg-zinc-800 ${
                       erValgt ? "bg-zinc-800" : ""
                     }`}
@@ -224,10 +266,36 @@ export default function HenvendelserPage() {
                     <span className="text-gray-300">
                       {formatTidspunkt(henvendelse.received_at)}
                     </span>
-                    <span className="text-sm text-gray-400">
-                      {statusLabels[henvendelse.status]}
+                    <span>
+                      <select
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                        value={henvendelse.status}
+                        disabled={gemmerStatusId === henvendelse.id}
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        onChange={(event) =>
+                          updateStatus(henvendelse, event.target.value)
+                        }
+                      >
+                        {statusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {statusLabels[status]}
+                          </option>
+                        ))}
+                      </select>
+                      {statusBesked?.id === henvendelse.id ? (
+                        <span
+                          className={`mt-1 block text-xs ${
+                            statusBesked.erFejl
+                              ? "text-red-400"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {statusBesked.tekst}
+                        </span>
+                      ) : null}
                     </span>
-                  </button>
+                  </div>
                 );
               })
             )}
@@ -262,31 +330,7 @@ export default function HenvendelserPage() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Status</p>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3 text-white"
-                    value={valgtHenvendelse.status}
-                    disabled={gemmerStatus}
-                    onChange={(event) =>
-                      updateStatus(event.target.value as InquiryStatus)
-                    }
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {statusLabels[status]}
-                      </option>
-                    ))}
-                  </select>
-                  {statusBesked ? (
-                    <p
-                      className={`mt-2 text-sm ${
-                        statusBesked === "Kunne ikke gemme status."
-                          ? "text-red-400"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      {statusBesked}
-                    </p>
-                  ) : null}
+                  <p className="mt-1">{statusLabels[valgtHenvendelse.status]}</p>
                 </div>
               </div>
 
