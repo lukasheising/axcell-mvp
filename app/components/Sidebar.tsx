@@ -19,7 +19,7 @@ export default function Sidebar() {
 
       <nav className="flex h-[calc(100%-4.5rem)] flex-col gap-4 pb-6">
         <Link href="/" className="text-gray-300 hover:text-white">
-          Dashboard
+          Overblik
         </Link>
 
         <Link href="/henvendelser" className="text-gray-300 hover:text-white">
