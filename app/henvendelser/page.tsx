@@ -32,6 +32,8 @@ const statusLabels: Record<InquiryStatus, string> = {
   handled: "Behandlet",
 };
 
+const statusOptions: InquiryStatus[] = ["new", "in_progress", "handled"];
+
 const prikFarver: Record<InquiryCategory, string> = {
   new_lead: "bg-emerald-500",
   reschedule: "bg-yellow-400",
@@ -63,6 +65,8 @@ export default function HenvendelserPage() {
   );
   const [indlaeser, setIndlaeser] = useState(true);
   const [fejl, setFejl] = useState("");
+  const [gemmerStatus, setGemmerStatus] = useState(false);
+  const [statusBesked, setStatusBesked] = useState("");
 
   useEffect(() => {
     const loadHenvendelser = async () => {
@@ -123,6 +127,42 @@ export default function HenvendelserPage() {
     loadHenvendelser();
   }, []);
 
+  const updateStatus = async (status: InquiryStatus) => {
+    if (!valgtHenvendelse) {
+      return;
+    }
+
+    setGemmerStatus(true);
+    setStatusBesked("Gemmer...");
+
+    const { error } = await supabase
+      .from("inquiries")
+      .update({ status })
+      .eq("id", valgtHenvendelse.id);
+
+    setGemmerStatus(false);
+
+    if (error) {
+      setStatusBesked("Kunne ikke gemme status.");
+      return;
+    }
+
+    const updatedHenvendelse = {
+      ...valgtHenvendelse,
+      status,
+    };
+
+    setValgtHenvendelse(updatedHenvendelse);
+    setHenvendelser((current) =>
+      current.map((henvendelse) =>
+        henvendelse.id === updatedHenvendelse.id
+          ? updatedHenvendelse
+          : henvendelse
+      )
+    );
+    setStatusBesked("Status er gemt.");
+  };
+
   return (
     <main className="min-h-screen bg-black text-white">
       <Sidebar />
@@ -160,8 +200,11 @@ export default function HenvendelserPage() {
                 <button
                   key={henvendelse.id}
                   type="button"
-                  onClick={() => setValgtHenvendelse(henvendelse)}
-                  className={`grid w-full grid-cols-[16px_minmax(150px,1fr)_130px_180px] items-center gap-3 border-b border-zinc-800 p-4 text-left transition last:border-b-0 hover:bg-zinc-800 ${
+                  onClick={() => {
+                    setValgtHenvendelse(henvendelse);
+                    setStatusBesked("");
+                  }}
+                  className={`grid w-full grid-cols-[16px_minmax(150px,1fr)_130px_180px_100px] items-center gap-3 border-b border-zinc-800 p-4 text-left transition last:border-b-0 hover:bg-zinc-800 ${
                     erValgt ? "bg-zinc-800" : ""
                   }`}
                 >
@@ -179,6 +222,9 @@ export default function HenvendelserPage() {
                   </span>
                   <span className="text-gray-300">
                     {formatTidspunkt(henvendelse.received_at)}
+                  </span>
+                  <span className="text-sm text-gray-400">
+                    {statusLabels[henvendelse.status]}
                   </span>
                 </button>
               );
@@ -215,7 +261,31 @@ export default function HenvendelserPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-400">Status</p>
-                <p className="mt-1">{statusLabels[valgtHenvendelse.status]}</p>
+                <select
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 p-3 text-white"
+                  value={valgtHenvendelse.status}
+                  disabled={gemmerStatus}
+                  onChange={(event) =>
+                    updateStatus(event.target.value as InquiryStatus)
+                  }
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {statusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+                {statusBesked ? (
+                  <p
+                    className={`mt-2 text-sm ${
+                      statusBesked === "Kunne ikke gemme status."
+                        ? "text-red-400"
+                        : "text-gray-400"
+                    }`}
+                  >
+                    {statusBesked}
+                  </p>
+                ) : null}
               </div>
             </div>
 
