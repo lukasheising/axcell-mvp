@@ -7,17 +7,39 @@ import { supabase } from "../../lib/supabase";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
+  const [sessionError, setSessionError] = useState("");
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        router.replace("/");
-        return;
-      }
-
-      setCheckingSession(false);
+    let active = true;
+    const sessionTimeout = new Promise<never>((_, reject) => {
+      window.setTimeout(
+        () => reject(new Error("Sessionstjekket tog for lang tid.")),
+        3000
+      );
     });
+
+    Promise.race([supabase.auth.getSession(), sessionTimeout])
+      .then(({ data }) => {
+        if (!active) {
+          return;
+        }
+
+        if (data.session) {
+          router.replace("/");
+          return;
+        }
+
+        setCheckingSession(false);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setSessionError("Kunne ikke tjekke sessionen. Prøv at logge ind.");
+        setCheckingSession(false);
+      });
 
     const {
       data: { subscription },
@@ -27,7 +49,10 @@ export default function LoginPage() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [router]);
 
   const handleLogin = async () => {
@@ -47,6 +72,10 @@ export default function LoginPage() {
           <p className="text-gray-400">Tjekker session...</p>
         ) : (
           <>
+            {sessionError ? (
+              <p className="mb-4 text-sm text-red-400">{sessionError}</p>
+            ) : null}
+
             <input
               type="email"
               placeholder="Din email"

@@ -8,37 +8,37 @@ const profileFields = [
   {
     key: "Company phone number",
     legacyKey: "",
-    label: "Phone number",
+    label: "Telefonnummer",
     placeholder: "+45 12 34 56 78",
     type: "input",
   },
   {
     key: "Company service areas",
     legacyKey: "Service areas",
-    label: "Service areas",
-    placeholder: "Copenhagen, Frederiksberg, Gentofte",
+    label: "Serviceområder",
+    placeholder: "København, Frederiksberg, Gentofte",
     type: "textarea",
   },
   {
     key: "Company opening hours",
     legacyKey: "Opening hours",
-    label: "Opening hours",
-    placeholder: "Monday-Friday 08:00-17:00, Saturday 09:00-14:00",
+    label: "Åbningstider",
+    placeholder: "Mandag-fredag 08:00-17:00, lørdag 09:00-14:00",
     type: "textarea",
   },
   {
     key: "Emergency jobs accepted",
     legacyKey: "Emergency jobs",
-    label: "Emergency jobs",
+    label: "Akutte opgaver",
     placeholder: "",
     type: "select",
   },
   {
     key: "General company info",
     legacyKey: "",
-    label: "General company info",
+    label: "Generel virksomhedsinfo",
     placeholder:
-      "What should the AI receptionist know about your window cleaning company?",
+      "Hvad skal AI-receptionisten vide om din vinduespudser-virksomhed?",
     type: "textarea",
   },
 ] as const;
@@ -105,11 +105,12 @@ export default function SettingsPage() {
       }
 
       setProfile(
-        profileRows.reduce<Record<ProfileField, string>>(
+        (profileRows ?? []).reduce<Record<ProfileField, string>>(
           (current, entry) => {
             const matchingField = profileFields.find(
               (field) =>
-                field.key === entry.question || field.legacyKey === entry.question
+                field.key === entry.question ||
+                field.legacyKey === entry.question
             );
 
             return matchingField
@@ -137,7 +138,7 @@ export default function SettingsPage() {
 
     if (userError || !user) {
       setSaving(false);
-      alert(userError?.message ?? "You must be logged in to save settings.");
+      alert(userError?.message ?? "Du skal være logget ind for at gemme.");
       return;
     }
 
@@ -176,7 +177,7 @@ export default function SettingsPage() {
       return;
     }
 
-    alert("Company settings saved");
+    alert("Virksomhedsindstillinger gemt");
     setCompanyName(data.name);
   };
 
@@ -185,19 +186,20 @@ export default function SettingsPage() {
       <Sidebar />
 
       <div className="ml-64 p-10 max-w-4xl">
-        <h1 className="text-4xl font-bold mb-4">Company Settings</h1>
+        <h1 className="text-4xl font-bold mb-4">Virksomhedsindstillinger</h1>
         <p className="text-gray-400 mb-8">
-          Tell the AI receptionist how your window cleaning company works.
+          Fortæl AI-receptionisten, hvordan din vinduespudser-virksomhed
+          arbejder.
         </p>
 
         <div className="space-y-6">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-gray-300">
-              Company name
+              Virksomhedsnavn
             </span>
             <input
               className="w-full rounded-xl bg-zinc-900 p-4"
-              placeholder="Company name"
+              placeholder="Virksomhedsnavn"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
             />
@@ -220,8 +222,8 @@ export default function SettingsPage() {
                     }))
                   }
                 >
-                  <option value="No">No emergency jobs</option>
-                  <option value="Yes">Accept emergency jobs</option>
+                  <option value="No">Ingen akutte opgaver</option>
+                  <option value="Yes">Accepter akutte opgaver</option>
                 </select>
               ) : field.type === "textarea" ? (
                 <textarea
@@ -256,7 +258,7 @@ export default function SettingsPage() {
             disabled={saving || !companyName}
             className="bg-white text-black px-6 py-3 rounded-xl font-semibold disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save settings"}
+            {saving ? "Gemmer..." : "Gem indstillinger"}
           </button>
         </div>
       </div>

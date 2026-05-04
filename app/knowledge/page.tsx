@@ -15,6 +15,15 @@ const knowledgeFields = [
 
 type KnowledgeField = (typeof knowledgeFields)[number];
 
+const knowledgeLabels: Record<KnowledgeField, string> = {
+  "Price per window type": "Pris pr. vinduestype",
+  "Subscription discount": "Abonnementsrabat",
+  "Scraping surcharge": "Tillæg for skrabning",
+  "Interior cleaning pricing": "Pris for indvendig pudsning",
+  "Service areas": "Serviceområder",
+  "General rules": "Generelle regler",
+};
+
 const emptyEntries: Record<KnowledgeField, string> = {
   "Price per window type": "",
   "Subscription discount": "",
@@ -28,6 +37,8 @@ export default function KnowledgePage() {
   const [entries, setEntries] = useState<Record<KnowledgeField, string>>(
     emptyEntries
   );
+  const [savedEntries, setSavedEntries] =
+    useState<Record<KnowledgeField, string>>(emptyEntries);
   const [saving, setSaving] = useState(false);
 
   const getUserCompany = async () => {
@@ -39,7 +50,7 @@ export default function KnowledgePage() {
     if (userError || !user) {
       return {
         company: null,
-        error: userError?.message ?? "You must be logged in.",
+        error: userError?.message ?? "Du skal være logget ind.",
       };
     }
 
@@ -79,18 +90,19 @@ export default function KnowledgePage() {
         return;
       }
 
-      setEntries(
-        data.reduce<Record<KnowledgeField, string>>(
-          (current, entry) =>
-            knowledgeFields.includes(entry.question as KnowledgeField)
-              ? {
-                  ...current,
-                  [entry.question]: entry.answer,
-                }
-              : current,
-          { ...emptyEntries }
-        )
+      const loadedEntries = (data ?? []).reduce<Record<KnowledgeField, string>>(
+        (current, entry) =>
+          knowledgeFields.includes(entry.question as KnowledgeField)
+            ? {
+                ...current,
+                [entry.question]: entry.answer,
+              }
+            : current,
+        { ...emptyEntries }
       );
+
+      setEntries(loadedEntries);
+      setSavedEntries(loadedEntries);
     };
 
     loadKnowledgeBase();
@@ -105,7 +117,7 @@ export default function KnowledgePage() {
     }
 
     if (!company) {
-      alert("Save your company settings before adding service rules.");
+      alert("Gem virksomhedsindstillinger, før du tilføjer serviceviden.");
       return;
     }
 
@@ -116,7 +128,7 @@ export default function KnowledgePage() {
     }));
 
     if (!rows.some((entry) => entry.answer)) {
-      alert("Add at least one service or pricing rule before saving.");
+      alert("Tilføj mindst én service- eller prisregel, før du gemmer.");
       return;
     }
 
@@ -133,18 +145,30 @@ export default function KnowledgePage() {
       return;
     }
 
-    alert("Service setup saved");
+    setSavedEntries(
+      rows.reduce<Record<KnowledgeField, string>>(
+        (current, row) => ({
+          ...current,
+          [row.question]: row.answer,
+        }),
+        { ...emptyEntries }
+      )
+    );
+    alert("Serviceopsætning gemt");
   };
+
+  const visibleSavedEntries = knowledgeFields.filter((field) =>
+    savedEntries[field].trim()
+  );
 
   return (
     <main className="min-h-screen bg-black text-white">
       <Sidebar />
 
       <div className="ml-64 p-10 max-w-5xl">
-        <h1 className="text-4xl font-bold mb-4">Service & Pricing Setup</h1>
+        <h1 className="text-4xl font-bold mb-4">Vidensbase</h1>
         <p className="text-gray-400 mb-8">
-          Rules the AI receptionist should use when answering window cleaning
-          customers.
+          Regler og svar, som AI-receptionisten skal bruge over for kunder.
         </p>
 
         <div className="space-y-6">
@@ -152,7 +176,7 @@ export default function KnowledgePage() {
             <textarea
               key={field}
               className="w-full bg-zinc-900 p-4 rounded-xl h-32"
-              placeholder={field}
+              placeholder={knowledgeLabels[field]}
               value={entries[field]}
               onChange={(e) =>
                 setEntries((current) => ({
@@ -168,9 +192,33 @@ export default function KnowledgePage() {
             disabled={saving}
             className="bg-white text-black px-6 py-3 rounded-xl font-semibold disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save service setup"}
+            {saving ? "Gemmer..." : "Gem serviceopsætning"}
           </button>
         </div>
+
+        <section className="mt-10 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 className="mb-4 text-2xl font-semibold">Gemt viden</h2>
+
+          {visibleSavedEntries.length === 0 ? (
+            <p className="text-gray-400">Ingen gemt viden endnu.</p>
+          ) : (
+            <div className="space-y-4">
+              {visibleSavedEntries.map((field) => (
+                <div
+                  key={field}
+                  className="border-b border-zinc-800 pb-4 last:border-b-0 last:pb-0"
+                >
+                  <p className="text-sm font-medium text-gray-400">
+                    {knowledgeLabels[field]}
+                  </p>
+                  <p className="mt-2 whitespace-pre-line text-gray-200">
+                    {savedEntries[field]}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </main>
   );
