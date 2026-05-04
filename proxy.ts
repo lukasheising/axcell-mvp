@@ -14,10 +14,13 @@ const protectedRoutes = [
   "/",
   "/settings",
   "/knowledge",
+  "/henvendelser",
   "/new-request",
   "/price-estimator",
   "/conversations",
   "/cases",
+  "/install",
+  "/widget-test",
 ];
 
 function isProtectedRoute(pathname: string) {
@@ -109,6 +112,8 @@ export const config = {
     "/settings/:path*",
     "/knowledge",
     "/knowledge/:path*",
+    "/henvendelser",
+    "/henvendelser/:path*",
     "/new-request",
     "/new-request/:path*",
     "/price-estimator",
@@ -117,5 +122,9 @@ export const config = {
     "/conversations/:path*",
     "/cases",
     "/cases/:path*",
+    "/install",
+    "/install/:path*",
+    "/widget-test",
+    "/widget-test/:path*",
   ],
 };
