@@ -4,142 +4,67 @@ import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import { supabase } from "../lib/supabase";
 
-type Conversation = {
-  id?: string;
-  customer_name?: string | null;
-  customer_message?: string | null;
-  ai_response?: string | null;
-  transcript?: string | null;
-  status?: string | null;
-  created_at?: string;
+type Inquiry = {
+  category: "new_lead" | "reschedule" | "cancellation" | "other";
+  status: "new" | "in_progress" | "handled";
+  received_at: string;
 };
 
-type IntakeDetails = Partial<
-  Record<"Request type" | "Urgency" | "Phone" | "Address" | "Message", string>
->;
-
 type DashboardStats = {
+  inquiriesToday: number;
+  newInquiries: number;
   newLeads: number;
-  priceRequests: number;
-  bookingRequests: number;
-  urgentRequests: number;
+  reschedules: number;
+  cancellations: number;
 };
 
 const emptyStats: DashboardStats = {
+  inquiriesToday: 0,
+  newInquiries: 0,
   newLeads: 0,
-  priceRequests: 0,
-  bookingRequests: 0,
-  urgentRequests: 0,
+  reschedules: 0,
+  cancellations: 0,
 };
 
-function parseIntakeDetails(message?: string | null) {
-  if (!message) {
-    return null;
-  }
+function isToday(value: string) {
+  const date = new Date(value);
+  const today = new Date();
 
-  const details = message
-    .split("\n")
-    .reduce<IntakeDetails>((current, line) => {
-      const separatorIndex = line.indexOf(":");
-
-      if (separatorIndex === -1) {
-        return current;
-      }
-
-      const key = line.slice(0, separatorIndex).trim();
-      const value = line.slice(separatorIndex + 1).trim();
-
-      if (
-        key === "Request type" ||
-        key === "Urgency" ||
-        key === "Phone" ||
-        key === "Address" ||
-        key === "Message"
-      ) {
-        return {
-          ...current,
-          [key]: value,
-        };
-      }
-
-      return current;
-    }, {});
-
-  return details["Request type"] ||
-    details.Urgency ||
-    details.Phone ||
-    details.Address ||
-    details.Message
-    ? details
-    : null;
-}
-
-function getRequestType(conversation: Conversation) {
-  const text = [
-    conversation.customer_message,
-    conversation.transcript,
-    conversation.ai_response,
-    conversation.status,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (
-    text.includes("book") ||
-    text.includes("schedule") ||
-    text.includes("appointment")
-  ) {
-    return "Booking request";
-  }
-
-  if (
-    text.includes("price") ||
-    text.includes("quote") ||
-    text.includes("estimate") ||
-    text.includes("cost")
-  ) {
-    return "Price request";
-  }
-
-  return "New lead";
-}
-
-function getDisplayedRequestType(conversation: Conversation) {
   return (
-    parseIntakeDetails(conversation.customer_message)?.["Request type"] ||
-    getRequestType(conversation)
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
   );
 }
 
-function isUrgentRequest(conversation: Conversation) {
-  const intakeDetails = parseIntakeDetails(conversation.customer_message);
-
-  return (
-    intakeDetails?.Urgency === "Urgent" ||
-    conversation.customer_message?.toLowerCase().includes("urgency: urgent") ||
-    false
+function getStats(inquiries: Inquiry[]) {
+  return inquiries.reduce<DashboardStats>(
+    (current, inquiry) => ({
+      inquiriesToday:
+        current.inquiriesToday + (isToday(inquiry.received_at) ? 1 : 0),
+      newInquiries: current.newInquiries + (inquiry.status === "new" ? 1 : 0),
+      newLeads: current.newLeads + (inquiry.category === "new_lead" ? 1 : 0),
+      reschedules:
+        current.reschedules + (inquiry.category === "reschedule" ? 1 : 0),
+      cancellations:
+        current.cancellations + (inquiry.category === "cancellation" ? 1 : 0),
+    }),
+    emptyStats
   );
 }
 
-function getStats(conversations: Conversation[]) {
-  return conversations.reduce<DashboardStats>((current, conversation) => {
-    const requestType = getDisplayedRequestType(conversation);
-
-    return {
-      newLeads: current.newLeads + (requestType === "New lead" ? 1 : 0),
-      priceRequests:
-        current.priceRequests + (requestType === "Price request" ? 1 : 0),
-      bookingRequests:
-        current.bookingRequests + (requestType === "Booking request" ? 1 : 0),
-      urgentRequests:
-        current.urgentRequests + (isUrgentRequest(conversation) ? 1 : 0),
-    };
-  }, emptyStats);
-}
+const statCards = [
+  { label: "Henvendelser i dag", value: "inquiriesToday" },
+  { label: "Nye henvendelser", value: "newInquiries" },
+  { label: "Nye leads", value: "newLeads" },
+  { label: "Flytning af tid", value: "reschedules" },
+  { label: "Aflysninger", value: "cancellations" },
+] as const;
 
 export default function Home() {
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
+  const [indlaeser, setIndlaeser] = useState(true);
+  const [fejl, setFejl] = useState("");
 
   useEffect(() => {
     const loadDashboardStats = async () => {
@@ -149,11 +74,14 @@ export default function Home() {
       } = await supabase.auth.getUser();
 
       if (userError) {
-        alert(userError.message);
+        setFejl("Kunne ikke hente bruger.");
+        setIndlaeser(false);
         return;
       }
 
       if (!user) {
+        setFejl("Du skal være logget ind for at se dashboardet.");
+        setIndlaeser(false);
         return;
       }
 
@@ -164,26 +92,29 @@ export default function Home() {
         .maybeSingle();
 
       if (companyError) {
-        alert(companyError.message);
+        setFejl("Kunne ikke hente virksomheden.");
+        setIndlaeser(false);
         return;
       }
 
       if (!company) {
+        setIndlaeser(false);
         return;
       }
 
       const { data, error } = await supabase
-        .from("conversations")
-        .select("*")
-        .eq("company_id", company.id)
-        .order("created_at", { ascending: false });
+        .from("inquiries")
+        .select("category, status, received_at")
+        .eq("company_id", company.id);
 
       if (error) {
-        alert(error.message);
+        setFejl("Kunne ikke hente henvendelser.");
+        setIndlaeser(false);
         return;
       }
 
-      setStats(getStats(data));
+      setStats(getStats((data ?? []) as Inquiry[]));
+      setIndlaeser(false);
     };
 
     loadDashboardStats();
@@ -196,30 +127,28 @@ export default function Home() {
       <div className="ml-64 p-10">
         <h1 className="text-5xl font-bold mb-4">Dashboard</h1>
         <p className="text-xl text-gray-300 mb-10">
-          AI receptionist overview for window cleaning companies
+          Overblik over indgående kundehenvendelser.
         </p>
 
-        <div className="grid grid-cols-4 gap-6">
-          <div className="bg-zinc-900 p-6 rounded-xl">
-            <h2 className="text-xl font-semibold mb-2">New Leads</h2>
-            <p>{stats.newLeads}</p>
-          </div>
+        {fejl ? <p className="mb-6 text-sm text-red-400">{fejl}</p> : null}
 
-          <div className="bg-zinc-900 p-6 rounded-xl">
-            <h2 className="text-xl font-semibold mb-2">Price Requests</h2>
-            <p>{stats.priceRequests}</p>
+        {indlaeser ? (
+          <p className="text-gray-400">Indlæser dashboard...</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
+            {statCards.map((card) => (
+              <div
+                key={card.value}
+                className="rounded-xl border border-zinc-800 bg-zinc-900 p-6"
+              >
+                <h2 className="mb-3 text-sm font-medium text-gray-400">
+                  {card.label}
+                </h2>
+                <p className="text-3xl font-semibold">{stats[card.value]}</p>
+              </div>
+            ))}
           </div>
-
-          <div className="bg-zinc-900 p-6 rounded-xl">
-            <h2 className="text-xl font-semibold mb-2">Booking Requests</h2>
-            <p>{stats.bookingRequests}</p>
-          </div>
-
-          <div className="bg-zinc-900 p-6 rounded-xl">
-            <h2 className="text-xl font-semibold mb-2">Urgent Requests</h2>
-            <p>{stats.urgentRequests}</p>
-          </div>
-        </div>
+        )}
       </div>
     </main>
   );
