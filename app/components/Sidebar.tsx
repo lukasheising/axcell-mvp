@@ -11,31 +11,27 @@ export default function Sidebar() {
         </Link>
 
         <Link href="/settings" className="text-gray-300 hover:text-white">
-          Company Settings
+          Virksomhedsindstillinger
         </Link>
 
         <Link href="/knowledge" className="text-gray-300 hover:text-white">
-          Service Setup
+          Serviceopsætning
         </Link>
 
         <Link href="/new-request" className="text-gray-300 hover:text-white">
-          New Request
+          Ny forespørgsel
         </Link>
 
         <Link href="/price-estimator" className="text-gray-300 hover:text-white">
-          Price Estimator
+          Prisberegner
         </Link>
 
-        <Link href="/conversations" className="text-gray-300 hover:text-white">
-          Conversations
-        </Link>
-
-        <Link href="/cases" className="text-gray-300 hover:text-white">
-          Cases
+        <Link href="/henvendelser" className="text-gray-300 hover:text-white">
+          Henvendelser
         </Link>
 
         <Link href="/install" className="text-gray-300 hover:text-white">
-          Install
+          Installation
         </Link>
       </nav>
     </div>
